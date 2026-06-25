@@ -15,6 +15,8 @@
  */
 
 import { WorldGen, TILE_COLORS, ORE_INFO, WORLD_CONFIG, TILE } from '../utils/WorldGen.js'
+import { PickupNotification } from '../ui/PickupNotification.js'
+import { DecorationSystem } from '../systems/DecorationSystem.js'
 
 const TILE_W = 64        // 等距瓦片宽
 const TILE_H = 32        // 等距瓦片高
@@ -31,6 +33,11 @@ export default class WorldScene extends Phaser.Scene {
     this.saveData = null
     this.moveTimer = 0
     this.lastChunkKey = ''             // 防止重复触发 loadVisibleChunks
+    // 动态瓦片动画列表（key: "wx_wy" → overlay graphics）
+    this.animatedTileOverlays = new Map()
+    // 子系统
+    this.pickupNotif = null
+    this.decoSystem = null
   }
 
   init(data) {
@@ -49,6 +56,10 @@ export default class WorldScene extends Phaser.Scene {
 
     // 主地图容器
     this.worldContainer = this.add.container(0, 0)
+
+    // 初始化子系统
+    this.pickupNotif = new PickupNotification(this)
+    this.decoSystem = new DecorationSystem(this, this.worldContainer)
 
     // 加载初始区块
     this.loadVisibleChunks()
@@ -171,25 +182,38 @@ export default class WorldScene extends Phaser.Scene {
 
   renderChunk(cx, cy, tiles, container) {
     const CHUNK = WORLD_CONFIG.CHUNK_SIZE
-    // 按 depth 排序渲染（远处先画），实现等距遮挡
     const drawCalls = []
     for (let r = 0; r < CHUNK; r++) {
       for (let c = 0; c < CHUNK; c++) {
         const wx = cx * CHUNK + c
         const wy = cy * CHUNK + r
-        const { tile, height } = tiles[r][c]
+        const { tile, height, animated } = tiles[r][c]
         const { sx, sy } = this.tileToScreen(wx, wy, height)
-        drawCalls.push({ sx, sy, tile, height, wx, wy, depth: wy + wx })
+        drawCalls.push({ sx, sy, tile, height, wx, wy, depth: wy + wx, animated })
       }
     }
-    // depth 排序（伪3D：行+列越大越靠前）
     drawCalls.sort((a, b) => a.depth - b.depth)
+
     for (const d of drawCalls) {
       this.drawTile(d.sx, d.sy, d.tile, d.height, d.depth, container)
+
+      // 矿石发光标记
       if (this.worldGen.isOre(d.tile) && ORE_INFO[d.tile]) {
         this.drawOreMarker(d.sx, d.sy, ORE_INFO[d.tile], container)
       }
+
+      // 动态瓦片动画叠加层
+      if (d.animated) {
+        this.addAnimatedTileOverlay(d.wx, d.wy, d.sx, d.sy, d.tile, d.depth, container)
+      }
     }
+
+    // 装饰物渲染（叠在地面之上）
+    this.decoSystem.renderChunkDecorations(
+      tiles, cx, cy,
+      (wx, wy, h) => this.tileToScreen(wx, wy, h),
+      container
+    )
   }
 
   drawTile(sx, sy, tileType, h, depth, container) {
@@ -246,7 +270,6 @@ export default class WorldScene extends Phaser.Scene {
     halo.lineStyle(2, info.glow, 0.35)
     halo.strokeCircle(sx, sy - 8, 11)
 
-    // 脉冲动画（每个矿石节奏略不同）
     const baseDur = 1100 + Math.sin(sx * 0.3 + sy * 0.5) * 600
     this.tweens.add({
       targets: [glow, halo],
@@ -259,6 +282,108 @@ export default class WorldScene extends Phaser.Scene {
     const icon = this.add.text(sx, sy - 18, info.icon, { fontSize: '9px' }).setOrigin(0.5, 1)
 
     container.add([glow, halo, icon])
+  }
+
+  // 动态瓦片动画叠加层（熔岩流、冰霜、雷电等）
+  addAnimatedTileOverlay(wx, wy, sx, sy, tileType, depth, container) {
+    const colorDef = TILE_COLORS[tileType]
+    if (!colorDef || !colorDef.animated) return
+
+    const hw = 32, hh = 16   // 半宽半高（64×32 等距菱形）
+
+    // 动画叠加层（透明度变化覆盖在基础瓦片上）
+    const overlay = this.add.graphics()
+    overlay.fillStyle(colorDef.animColor, 0.45)
+    overlay.fillPoints([
+      { x: sx,      y: sy - hh },
+      { x: sx + hw, y: sy      },
+      { x: sx,      y: sy + hh },
+      { x: sx - hw, y: sy      },
+    ], true)
+    overlay.setDepth(depth + 0.1)
+    container.add(overlay)
+
+    // 根据瓦片类型选择不同动画
+    switch (tileType) {
+      case TILE.LAVA_FLOW:
+        // 熔岩：橙红脉冲
+        this.tweens.add({
+          targets: overlay,
+          alpha: { from: 0.2, to: 0.7 },
+          duration: 600 + Math.sin(wx + wy) * 200,
+          yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        })
+        break
+
+      case TILE.FROST_GLOW:
+        // 冰霜：随机闪烁（模拟晶体折射）
+        this.tweens.add({
+          targets: overlay,
+          alpha: { from: 0.1, to: 0.6 },
+          duration: 1800 + Math.random() * 800,
+          yoyo: true, repeat: -1, ease: 'Sine.easeIn',
+        })
+        // 随机闪光点
+        this.time.addEvent({
+          delay: 1200 + Math.random() * 1500,
+          callback: () => {
+            if (!overlay.active) return
+            const spark = this.add.graphics()
+            spark.fillStyle(0xffffff, 0.9)
+            spark.fillCircle(sx + (Math.random() - 0.5) * 40, sy + (Math.random() - 0.5) * 20, 1.5)
+            container.add(spark)
+            this.tweens.add({
+              targets: spark, alpha: 0, duration: 400,
+              onComplete: () => spark.destroy()
+            })
+          },
+          repeat: -1,
+        })
+        break
+
+      case TILE.THUNDER_STONE:
+        // 雷电石：快速闪烁
+        overlay.alpha = 0
+        this.tweens.add({
+          targets: overlay, alpha: { from: 0, to: 0.8 },
+          duration: 80, yoyo: true,
+          delay: 2000 + Math.random() * 3000,
+          repeat: -1,
+          repeatDelay: 1500 + Math.random() * 2000,
+        })
+        break
+
+      case TILE.MUSHROOM_GLOW:
+        // 菌落：慢呼吸脉冲
+        this.tweens.add({
+          targets: overlay,
+          alpha: { from: 0.1, to: 0.5 },
+          duration: 2200 + Math.random() * 600,
+          yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        })
+        break
+
+      case TILE.RUNE_GLOW:
+        // 符文地：金色波纹
+        this.tweens.add({
+          targets: overlay,
+          alpha: { from: 0.15, to: 0.55 },
+          duration: 2600 + Math.random() * 800,
+          yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        })
+        break
+
+      case TILE.STREAM:
+        // 溪流：蓝色涌动（Y轴偏移模拟流动）
+        this.tweens.add({
+          targets: overlay,
+          alpha: { from: 0.3, to: 0.65 },
+          y: { from: 0, to: -4 },
+          duration: 1000,
+          yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        })
+        break
+    }
   }
 
   // ── 玩家精灵 ──────────────────────────────────────────────────────────────
@@ -383,6 +508,9 @@ export default class WorldScene extends Phaser.Scene {
     if (!save.inventory.ores) save.inventory.ores = {}
     save.inventory.ores[info.drops] = (save.inventory.ores[info.drops] || 0) + 1
     localStorage.setItem('mojing_save', JSON.stringify(save))
+
+    // ── 拾取通知（中文名称 + 等级卡片）──────────────────────────
+    this.pickupNotif.show(info.drops, 1)
 
     // 重新渲染该区块
     this.rebuildChunk(cx, cy)

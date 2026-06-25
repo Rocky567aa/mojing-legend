@@ -96,65 +96,130 @@ const BIOME_SEEDS = [
 
 // ── 瓦片系统 ──────────────────────────────────────────────────────────────────
 export const TILE = {
+  // 静态地面
   GRASS: 0, COBBLESTONE: 1,
   OBSIDIAN: 2, LAVA_CRACK: 3,
   ICE: 4, FROST_STONE: 5,
   SCORCHED_ROCK: 6, LIGHTNING_SCAR: 7,
   VOID_STONE: 8, DARK_CRYSTAL_FLOOR: 9,
   MARBLE: 10, RUNE_STONE: 11,
+  // 矿石
   FIRE_ORE: 12, ICE_ORE: 13,
   THUNDER_ORE: 14, DARK_ORE: 15,
   HOLY_ORE: 16, CHAOS_ORE: 17,
+  // 动态地面（有动画效果）
+  LAVA_FLOW: 18,        // 熔岩流（脉冲橙红）
+  FROST_GLOW: 19,       // 冰霜发光地（闪烁）
+  THUNDER_STONE: 20,    // 雷电石（电弧闪）
+  MUSHROOM_GLOW: 21,    // 发光菌落地（慢脉冲）
+  RUNE_GLOW: 22,        // 发光符文地（金色波纹）
+  STREAM: 23,           // 溪流（蓝色涌动）
+  // 装饰地面
+  MOSSY_STONE: 24,      // 苔藓石（草原变体）
+  CRACKED_GROUND: 25,   // 龟裂地面（火焰区变体）
+  SNOW_PATCH: 26,       // 积雪地面（冰原变体）
+  DARK_SLIME: 27,       // 暗影地浆（地穴变体）
 }
 
-// 每个生物群系的地面瓦片配置（基础地面、变体地面、稀有变体）
+// 每个生物群系的地面瓦片配置（含动态瓦片权重 + 装饰物规则）
 const BIOME_TILES = {
   [BIOME.GRASSLAND]: {
-    base: [TILE.GRASS, TILE.GRASS, TILE.GRASS, TILE.COBBLESTONE],
-    ore: TILE.FIRE_ORE,       // 草原也有少量杂矿
-    oreDensity: 0.018,        // 1.8% 概率出现矿石
-    oreVeinScale: 0.06,       // 矿脉噪声频率（低→大团）
-    oreVeinThreshold: 0.55,   // 矿脉出现噪声阈值
+    // 基础地面：5种变体（含动态溪流和苔藓石）
+    base: [TILE.GRASS, TILE.GRASS, TILE.GRASS, TILE.COBBLESTONE, TILE.MOSSY_STONE],
+    animated: [TILE.STREAM],         // 动态地面（低概率出现）
+    animatedThreshold: 0.72,         // Noise > 阈值时出现动态地面
+    ore: TILE.FIRE_ORE,
+    oreDensity: 0.018,
+    oreVeinScale: 0.06,
+    oreVeinThreshold: 0.55,
+    // 装饰物规则：[DECO类型, 出现概率]
+    decoRules: [
+      { deco: 0,  prob: 0.008 },   // TORCH 火把
+      { deco: 1,  prob: 0.005 },   // MAGIC_LANTERN 灯笼
+      { deco: 2,  prob: 0.004 },   // BANNER 旗帜
+      { deco: 3,  prob: 0.010 },   // BARREL 木桶
+      { deco: 5,  prob: 0.012 },   // MAGIC_HERB 草药（草原最多）
+      { deco: 14, prob: 0.004 },   // MAGIC_WELL 水井
+    ],
   },
   [BIOME.FIRE_VALLEY]: {
-    base: [TILE.OBSIDIAN, TILE.OBSIDIAN, TILE.LAVA_CRACK, TILE.COBBLESTONE],
+    base: [TILE.OBSIDIAN, TILE.OBSIDIAN, TILE.LAVA_CRACK, TILE.COBBLESTONE, TILE.CRACKED_GROUND],
+    animated: [TILE.LAVA_FLOW],
+    animatedThreshold: 0.55,
     ore: TILE.FIRE_ORE,
-    oreDensity: 0.055,        // 5.5%（火焰区矿石密集）
+    oreDensity: 0.055,
     oreVeinScale: 0.08,
     oreVeinThreshold: 0.45,
+    decoRules: [
+      { deco: 0,  prob: 0.010 },   // TORCH（火把，火焰区多）
+      { deco: 9,  prob: 0.015 },   // LAVA_VENT 岩浆喷口
+      { deco: 6,  prob: 0.007 },   // IRON_HOOK
+      { deco: 7,  prob: 0.006 },   // SKULL_POLE
+    ],
   },
   [BIOME.FROST_FJORD]: {
-    base: [TILE.ICE, TILE.ICE, TILE.FROST_STONE, TILE.COBBLESTONE],
+    base: [TILE.ICE, TILE.ICE, TILE.FROST_STONE, TILE.COBBLESTONE, TILE.SNOW_PATCH],
+    animated: [TILE.FROST_GLOW],
+    animatedThreshold: 0.60,
     ore: TILE.ICE_ORE,
     oreDensity: 0.05,
     oreVeinScale: 0.07,
     oreVeinThreshold: 0.48,
+    decoRules: [
+      { deco: 10, prob: 0.018 },   // ICE_SPIKE 冰刺（最多）
+      { deco: 1,  prob: 0.006 },   // MAGIC_LANTERN
+      { deco: 4,  prob: 0.005 },   // CRYSTAL_PILLAR
+    ],
   },
   [BIOME.THUNDER_HIGHLAND]: {
-    base: [TILE.SCORCHED_ROCK, TILE.SCORCHED_ROCK, TILE.LIGHTNING_SCAR, TILE.COBBLESTONE],
+    base: [TILE.SCORCHED_ROCK, TILE.SCORCHED_ROCK, TILE.LIGHTNING_SCAR, TILE.COBBLESTONE, TILE.CRACKED_GROUND],
+    animated: [TILE.THUNDER_STONE],
+    animatedThreshold: 0.58,
     ore: TILE.THUNDER_ORE,
     oreDensity: 0.05,
     oreVeinScale: 0.075,
     oreVeinThreshold: 0.48,
+    decoRules: [
+      { deco: 11, prob: 0.016 },   // THUNDER_ROD 雷电柱（最多）
+      { deco: 6,  prob: 0.008 },   // IRON_HOOK
+      { deco: 8,  prob: 0.006 },   // RUNE_STONE
+      { deco: 7,  prob: 0.005 },   // SKULL_POLE
+    ],
   },
   [BIOME.DARK_CAVERN]: {
-    base: [TILE.VOID_STONE, TILE.VOID_STONE, TILE.DARK_CRYSTAL_FLOOR, TILE.VOID_STONE],
+    base: [TILE.VOID_STONE, TILE.VOID_STONE, TILE.DARK_CRYSTAL_FLOOR, TILE.VOID_STONE, TILE.DARK_SLIME],
+    animated: [TILE.MUSHROOM_GLOW],
+    animatedThreshold: 0.52,
     ore: TILE.DARK_ORE,
     oreDensity: 0.052,
     oreVeinScale: 0.07,
     oreVeinThreshold: 0.47,
+    decoRules: [
+      { deco: 12, prob: 0.020 },   // DARK_MUSHROOM 暗影菌（最多）
+      { deco: 7,  prob: 0.010 },   // SKULL_POLE
+      { deco: 1,  prob: 0.006 },   // MAGIC_LANTERN（紫色）
+      { deco: 4,  prob: 0.005 },   // CRYSTAL_PILLAR
+    ],
   },
   [BIOME.HOLY_RUINS]: {
-    base: [TILE.MARBLE, TILE.MARBLE, TILE.RUNE_STONE, TILE.COBBLESTONE],
+    base: [TILE.MARBLE, TILE.MARBLE, TILE.RUNE_STONE, TILE.COBBLESTONE, TILE.RUNE_GLOW],
+    animated: [TILE.RUNE_GLOW],
+    animatedThreshold: 0.65,
     ore: TILE.HOLY_ORE,
     oreDensity: 0.045,
     oreVeinScale: 0.09,
     oreVeinThreshold: 0.50,
-    // 混沌原石：额外稀有层
     rareOre: TILE.CHAOS_ORE,
-    rareDensity: 0.002,       // 0.2%，极稀有
+    rareDensity: 0.002,
     rareVeinScale: 0.12,
     rareVeinThreshold: 0.72,
+    decoRules: [
+      { deco: 13, prob: 0.012 },   // HOLY_PILLAR 圣光石柱
+      { deco: 8,  prob: 0.015 },   // RUNE_STONE 古代石碑
+      { deco: 4,  prob: 0.008 },   // CRYSTAL_PILLAR
+      { deco: 1,  prob: 0.008 },   // MAGIC_LANTERN（金色）
+      { deco: 2,  prob: 0.006 },   // BANNER 旗帜
+    ],
   },
 }
 
@@ -179,6 +244,18 @@ export const TILE_COLORS = {
   [TILE.DARK_ORE]:        { top: 0x550077, left: 0x330055, right: 0x7700aa },
   [TILE.HOLY_ORE]:        { top: 0xddcc66, left: 0x998833, right: 0xffee88 },
   [TILE.CHAOS_ORE]:       { top: 0x9966ff, left: 0x6633cc, right: 0xcc99ff },
+  // 动态地面（base 颜色，动画层叠加）
+  [TILE.LAVA_FLOW]:       { top: 0x551100, left: 0x330800, right: 0x772200, animated: true, animColor: 0xff4400 },
+  [TILE.FROST_GLOW]:      { top: 0x88aacc, left: 0x6688aa, right: 0x99bbdd, animated: true, animColor: 0xaaddff },
+  [TILE.THUNDER_STONE]:   { top: 0x3a3020, left: 0x221810, right: 0x4a4030, animated: true, animColor: 0xffdd22 },
+  [TILE.MUSHROOM_GLOW]:   { top: 0x180a28, left: 0x0a0518, right: 0x220a38, animated: true, animColor: 0x8800cc },
+  [TILE.RUNE_GLOW]:       { top: 0xccccbb, left: 0x999988, right: 0xddddcc, animated: true, animColor: 0xffcc00 },
+  [TILE.STREAM]:          { top: 0x1a4a6a, left: 0x0d2a3d, right: 0x2a6a8a, animated: true, animColor: 0x44aaee },
+  // 装饰地面变体
+  [TILE.MOSSY_STONE]:     { top: 0x3a5a2a, left: 0x223318, right: 0x4a6a3a },
+  [TILE.CRACKED_GROUND]:  { top: 0x2a2010, left: 0x180c08, right: 0x3a2a18 },
+  [TILE.SNOW_PATCH]:      { top: 0xddddee, left: 0xaaaacc, right: 0xeeeeff },
+  [TILE.DARK_SLIME]:      { top: 0x0a1a10, left: 0x050c08, right: 0x102218 },
 }
 
 // 矿石信息（名称、发光色、图标、区域标签）
@@ -271,12 +348,9 @@ export class WorldGen {
   // ── 瓦片生成 ──────────────────────────────────────────────────────────────
 
   /**
-   * 生成单个格子的瓦片类型
-   * 这是区块生成的核心函数
+   * 生成单个格子的瓦片类型（含动态瓦片 + 装饰物）
    *
-   * @param {number} wx - 世界格坐标 X
-   * @param {number} wy - 世界格坐标 Y
-   * @returns {{ tile: number, biome: number, height: number }}
+   * @returns {{ tile, biome, height, deco: number|null, animated: boolean }}
    */
   generateTile(wx, wy) {
     const biome = this.getBiome(wx, wy)
@@ -287,32 +361,62 @@ export class WorldGen {
     if (cfg.rareOre !== undefined) {
       const rareVein = this.rareOreNoise.noise2D(wx * cfg.rareVeinScale, wy * cfg.rareVeinScale)
       if (rareVein > cfg.rareVeinThreshold) {
-        // 额外随机过滤，确保 0.2% 密度上限
         const r = this._hash(wx, wy, 0x9999)
-        if (r < cfg.rareDensity / 0.3) {  // 0.3 是噪声超过阈值的大约概率
-          return { tile: cfg.rareOre, biome, height }
+        if (r < cfg.rareDensity / 0.3) {
+          return { tile: cfg.rareOre, biome, height, deco: null, animated: false }
         }
       }
     }
 
-    // 2. 普通矿脉（团状 Noise > 阈值 + 随机密度）
+    // 2. 普通矿脉
     const oreVein = this.oreNoise.noise2D(wx * cfg.oreVeinScale, wy * cfg.oreVeinScale)
     if (oreVein > cfg.oreVeinThreshold) {
       const r = this._hash(wx, wy, 0x7777)
-      // 矿脉核心密度高，边缘低（线性衰减）
       const veinStrength = (oreVein - cfg.oreVeinThreshold) / (1 - cfg.oreVeinThreshold)
       const effectiveDensity = cfg.oreDensity * (0.4 + 0.6 * veinStrength)
       if (r < effectiveDensity) {
-        return { tile: cfg.ore, biome, height }
+        return { tile: cfg.ore, biome, height, deco: null, animated: false }
       }
     }
 
-    // 3. 基础地面（用细节噪声选变体，避免单调）
+    // 3. 装饰物（在地面瓦片上叠加）
+    let deco = null
+    if (cfg.decoRules) {
+      const decoHash = this._hash(wx, wy, 0xdec0)
+      const decoNoise = this.detailNoise.noise2D(wx * 0.05, wy * 0.05)
+      // 装饰物不能生成在矿脉中心（避免重叠）
+      if (oreVein < cfg.oreVeinThreshold - 0.1) {
+        let cumulative = 0
+        for (const rule of cfg.decoRules) {
+          cumulative += rule.prob
+          if (decoHash < cumulative) {
+            deco = rule.deco
+            break
+          }
+        }
+      }
+    }
+
+    // 4. 动态地面（在噪声高值区域出现）
+    let tileType
+    let animated = false
+    if (cfg.animated) {
+      const animNoise = this.detailNoise.noise2D(wx * 0.04, wy * 0.04)
+      if (animNoise > cfg.animatedThreshold && !deco) {
+        tileType = cfg.animated[0]
+        animated = true
+        return { tile: tileType, biome, height, deco: null, animated: true }
+      }
+    }
+
+    // 5. 基础地面（细节变体）
     const detail = this.detailNoise.noise2D(wx * 0.1, wy * 0.1)
-    const detailNorm = (detail + 1) / 2  // 0 ~ 1
+    const detailNorm = (detail + 1) / 2
     const baseArr = cfg.base
     const idx = Math.floor(detailNorm * baseArr.length)
-    return { tile: baseArr[Math.min(idx, baseArr.length - 1)], biome, height }
+    tileType = baseArr[Math.min(idx, baseArr.length - 1)]
+
+    return { tile: tileType, biome, height, deco, animated: false }
   }
 
   /**
