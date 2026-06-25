@@ -17,6 +17,8 @@
 import { WorldGen, TILE_COLORS, ORE_INFO, WORLD_CONFIG, TILE } from '../utils/WorldGen.js'
 import { PickupNotification } from '../ui/PickupNotification.js'
 import { DecorationSystem } from '../systems/DecorationSystem.js'
+import { PlantSystem } from '../entities/PlantSystem.js'
+import { InsectSystem } from '../entities/InsectSystem.js'
 
 const TILE_W = 64        // 等距瓦片宽
 const TILE_H = 32        // 等距瓦片高
@@ -38,6 +40,8 @@ export default class WorldScene extends Phaser.Scene {
     // 子系统
     this.pickupNotif = null
     this.decoSystem = null
+    this.plantSystem = null
+    this.insectSystem = null
   }
 
   init(data) {
@@ -60,6 +64,8 @@ export default class WorldScene extends Phaser.Scene {
     // 初始化子系统
     this.pickupNotif = new PickupNotification(this)
     this.decoSystem = new DecorationSystem(this, this.worldContainer)
+    this.insectSystem = new InsectSystem(this, this.worldContainer)
+    this.plantSystem = new PlantSystem(this, this.worldContainer, this.insectSystem)
 
     // 加载初始区块
     this.loadVisibleChunks()
@@ -213,6 +219,18 @@ export default class WorldScene extends Phaser.Scene {
       tiles, cx, cy,
       (wx, wy, h) => this.tileToScreen(wx, wy, h),
       container
+    )
+
+    // 植物生成（需在装饰物之后，避免位置冲突）
+    this.plantSystem.spawnChunkPlants(
+      tiles, cx, cy,
+      (wx, wy, h) => this.tileToScreen(wx, wy, h)
+    )
+
+    // 昆虫生成
+    this.insectSystem.spawnChunkInsects(
+      tiles, cx, cy,
+      (wx, wy, h) => this.tileToScreen(wx, wy, h)
     )
   }
 
@@ -423,7 +441,12 @@ export default class WorldScene extends Phaser.Scene {
 
   // ── 更新循环 ──────────────────────────────────────────────────────────────
 
-  update(time) {
+  update(time, delta) {
+    // ── 生物系统帧更新 ─────────────────────────────────────────────────────
+    const now = this.time.now
+    if (this.insectSystem) this.insectSystem.update(delta ?? 16, now)
+    if (this.plantSystem)  this.plantSystem.update(now)
+
     if (time - this.moveTimer < 160) return
 
     const { x, y } = this.playerTile
