@@ -36,12 +36,9 @@ export default class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // 检查是否有存档（新玩家 → 职业选择；老玩家 → 世界地图）
-    const saveData = localStorage.getItem('mojing_save')
-    if (saveData) {
-      this.scene.start('WorldScene', JSON.parse(saveData))
-    } else {
-      this.scene.start('ProfessionSelectScene')
-    }
+    // 每次进入游戏都弹出英雄选择界面，把已有存档传过去保留进度
+    const raw = localStorage.getItem('mojing_save')
+    const saveData = raw ? JSON.parse(raw) : null
+    this.scene.start('ProfessionSelectScene', { existingSave: saveData })
   }
 }

@@ -1,6 +1,6 @@
 /**
- * ProfessionSelectScene — 永久职业选择场景
- * 选定后写入存档，不可更改
+ * ProfessionSelectScene — 每次进游戏时选择英雄职业
+ * 可重新选择，选定后更新存档并进入世界
  */
 
 const PROFESSIONS = [
@@ -77,6 +77,11 @@ export default class ProfessionSelectScene extends Phaser.Scene {
     super({ key: 'ProfessionSelectScene' })
     this.selected = null
     this.cards = []
+    this.existingSave = null
+  }
+
+  init(data) {
+    this.existingSave = (data && data.existingSave) ? data.existingSave : null
   }
 
   create() {
@@ -109,7 +114,7 @@ export default class ProfessionSelectScene extends Phaser.Scene {
     }
 
     // 标题
-    this.add.text(width / 2, 60, '选择你的职业', {
+    this.add.text(width / 2, 60, '选择你的英雄', {
       fontSize: '36px',
       color: '#cc88ff',
       fontStyle: 'bold',
@@ -117,9 +122,12 @@ export default class ProfessionSelectScene extends Phaser.Scene {
       strokeThickness: 4
     }).setOrigin(0.5)
 
-    this.add.text(width / 2, 105, '⚠️  此选择永久生效，无法更改，请慎重决定', {
+    const subtitle = this.existingSave
+      ? `当前职业：${PROFESSIONS.find(p => p.id === this.existingSave.profession)?.name ?? '无'} · 可重新选择`
+      : '每局开始时选择一位英雄，随时可换'
+    this.add.text(width / 2, 105, subtitle, {
       fontSize: '14px',
-      color: '#ff8844'
+      color: '#aaaacc'
     }).setOrigin(0.5)
 
     // 职业卡片（3列 × 2行）
@@ -245,54 +253,19 @@ export default class ProfessionSelectScene extends Phaser.Scene {
 
   confirmSelection() {
     if (!this.selected) return
-    // 二次确认
-    const prof = PROFESSIONS.find(p => p.id === this.selected)
-    const { width, height } = this.scale
-
-    const overlay = this.add.graphics()
-    overlay.fillStyle(0x000000, 0.7)
-    overlay.fillRect(0, 0, width, height)
-
-    const dialog = this.add.container(width / 2, height / 2)
-    const dBg = this.add.graphics()
-    dBg.fillStyle(0x1a1a3a, 1)
-    dBg.lineStyle(2, 0x9933ff, 1)
-    dBg.fillRoundedRect(-200, -100, 400, 200, 16)
-    dBg.strokeRoundedRect(-200, -100, 400, 200, 16)
-
-    const dText = this.add.text(0, -55,
-      `你选择了【${prof.name}】\n此选择永久生效，无法更改\n是否确认？`,
-      { fontSize: '16px', color: '#ffffff', align: 'center', lineSpacing: 8 }
-    ).setOrigin(0.5)
-
-    const confirmBtn = this.add.text(-70, 50, '✅ 确认', {
-      fontSize: '16px', color: '#44ff88', fontStyle: 'bold'
-    }).setOrigin(0.5).setInteractive()
-
-    const cancelBtn = this.add.text(70, 50, '❌ 返回', {
-      fontSize: '16px', color: '#ff4444'
-    }).setOrigin(0.5).setInteractive()
-
-    dialog.add([dBg, dText, confirmBtn, cancelBtn])
-
-    confirmBtn.on('pointerdown', () => {
-      // 写入本地存档
-      const saveData = {
-        profession: this.selected,
-        professionChosenAt: Date.now(),
-        baseLevel: 1,
-        crystals: [],
-        inventory: { ores: {}, powders: {}, purifiedPowders: {}, purifier: 5, fuel: 10 }
-      }
-      localStorage.setItem('mojing_save', JSON.stringify(saveData))
-      // 播放职业觉醒动画后跳转
-      this.cameras.main.fadeOut(800, 0, 0, 0)
-      this.time.delayedCall(800, () => this.scene.start('WorldScene', saveData))
-    })
-
-    cancelBtn.on('pointerdown', () => {
-      overlay.destroy()
-      dialog.destroy()
-    })
+    // 合并存档：保留老玩家进度，仅更新职业
+    const base = this.existingSave || {
+      baseLevel: 1,
+      crystals: [],
+      inventory: { ores: {}, powders: {}, purifiedPowders: {}, purifier: 5, fuel: 10 }
+    }
+    const saveData = {
+      ...base,
+      profession: this.selected,
+      professionChosenAt: Date.now()
+    }
+    localStorage.setItem('mojing_save', JSON.stringify(saveData))
+    this.cameras.main.fadeOut(600, 0, 0, 0)
+    this.time.delayedCall(600, () => this.scene.start('WorldScene', saveData))
   }
 }
