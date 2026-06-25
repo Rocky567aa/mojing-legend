@@ -81,6 +81,9 @@ export default class ProfessionSelectScene extends Phaser.Scene {
   }
 
   init(data) {
+    // 每次场景启动都重置，防止重复进入时 cards 堆积
+    this.selected = null
+    this.cards = []
     this.existingSave = (data && data.existingSave) ? data.existingSave : null
   }
 

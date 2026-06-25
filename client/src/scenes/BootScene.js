@@ -37,8 +37,14 @@ export default class BootScene extends Phaser.Scene {
 
   create() {
     // 每次进入游戏都弹出英雄选择界面，把已有存档传过去保留进度
-    const raw = localStorage.getItem('mojing_save')
-    const saveData = raw ? JSON.parse(raw) : null
+    let saveData = null
+    try {
+      const raw = localStorage.getItem('mojing_save')
+      if (raw) saveData = JSON.parse(raw)
+    } catch (e) {
+      console.warn('[Boot] 存档损坏，已重置', e)
+      localStorage.removeItem('mojing_save')
+    }
     this.scene.start('ProfessionSelectScene', { existingSave: saveData })
   }
 }
