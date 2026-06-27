@@ -108,6 +108,9 @@ export class CombatSystem {
   }
 
   _onKill(m) {
+    // ── 怪物死亡特效 ─────────────────────────────────────────────────────
+    this._showMonsterDeath(m.sx, m.sy, m.type?.color ?? 0xff4400)
+
     const xpGain = m.type?.xp ?? 5
     this.xp += xpGain
     while (this.xp >= this._xpToNext) {
@@ -160,24 +163,61 @@ export class CombatSystem {
   _onDeath() {
     this.dead = true
     const s = this.scene
-    s.cameras.main.shake(400, 0.015)
-    // Overlay
+    s.cameras.main.shake(600, 0.025)
+
     const { width, height } = s.scale
-    const overlay = s.add.graphics().setDepth(500).setScrollFactor(0)
+
+    // ── 玩家死亡粒子爆炸 ─────────────────────────────────────────────────
+    const px = width / 2, py = height / 2 - 40
+    for (let i = 0; i < 18; i++) {
+      const angle = (Math.PI * 2 / 18) * i + Math.random() * 0.3
+      const speed = 50 + Math.random() * 80
+      const dot = s.add.graphics().setDepth(510).setScrollFactor(0)
+      const col = [0xff2200, 0xff6600, 0xffaa00, 0xffffff][Math.floor(Math.random() * 4)]
+      dot.fillStyle(col, 0.9)
+      dot.fillCircle(px, py, 4 + Math.random() * 4)
+      s.tweens.add({
+        targets: dot,
+        x: Math.cos(angle) * speed,
+        y: Math.sin(angle) * speed,
+        alpha: 0,
+        scaleX: 0.1, scaleY: 0.1,
+        duration: 700 + Math.random() * 400,
+        ease: 'Power2',
+        onComplete: () => dot.destroy(),
+      })
+    }
+
+    // ── 爆闪光环 ─────────────────────────────────────────────────────────
+    const burst = s.add.graphics().setDepth(511).setScrollFactor(0)
+    burst.lineStyle(3, 0xff3300, 1)
+    burst.strokeCircle(px, py, 20)
+    s.tweens.add({ targets: burst, alpha: 0, scaleX: 4, scaleY: 4, duration: 500,
+      onComplete: () => burst.destroy() })
+
+    // ── 死亡红屏 ─────────────────────────────────────────────────────────
+    const overlay = s.add.graphics().setDepth(508).setScrollFactor(0)
     overlay.fillStyle(0x880000, 0)
     overlay.fillRect(0, 0, width, height)
-    s.tweens.add({ targets: overlay, alpha: 0.6, duration: 600 })
-    s.add.text(width/2, height/2 - 30, '⚔ 你已阵亡', {
+    s.tweens.add({ targets: overlay, alpha: 0.65, duration: 500 })
+
+    const deathTxt = s.add.text(width/2, height/2 - 30, '⚔ 你已阵亡', {
       fontSize: '28px', color: '#ff4444',
-      stroke: '#000000', strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(510).setScrollFactor(0)
-    // Revive after 3s
+      stroke: '#000000', strokeThickness: 5,
+    }).setOrigin(0.5).setDepth(512).setScrollFactor(0)
+    const reviveTxt = s.add.text(width/2, height/2 + 12, '3 秒后复活...', {
+      fontSize: '14px', color: '#ffaaaa',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(512).setScrollFactor(0)
+
     s.time.delayedCall(3000, () => {
       this.hp = Math.round(this.maxHp * 0.4)
       this.dead = false
       this.refreshUI()
       s.tweens.add({ targets: overlay, alpha: 0, duration: 800,
         onComplete: () => overlay.destroy() })
+      deathTxt.destroy()
+      reviveTxt.destroy()
     })
   }
 
@@ -190,6 +230,72 @@ export class CombatSystem {
       this.hp = Math.min(this.maxHp, this.hp + 15)
       this.refreshUI()
     }
+  }
+
+  // ── Monster death FX ────────────────────────────────────────────────────
+  _showMonsterDeath(sx, sy, color) {
+    const s = this.scene
+    const wc = s.worldContainer
+    const px = wc.x + sx, py = wc.y + sy
+
+    // 粒子爆炸（12 颗，带主色调）
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 / 12) * i
+      const speed = 30 + Math.random() * 50
+      const dot = s.add.graphics().setDepth(99990).setScrollFactor(0)
+      dot.fillStyle(color, 0.95)
+      dot.fillCircle(px, py, 3 + Math.random() * 3)
+      s.tweens.add({
+        targets: dot,
+        x: Math.cos(angle) * speed,
+        y: Math.sin(angle) * speed - 10,
+        alpha: 0,
+        scaleX: 0.2, scaleY: 0.2,
+        duration: 500 + Math.random() * 300,
+        ease: 'Power2',
+        onComplete: () => dot.destroy(),
+      })
+    }
+
+    // 爆炸光环（双圆）
+    for (const [r, col] of [[22, color], [38, 0xffffff]]) {
+      const ring = s.add.graphics().setDepth(99989).setScrollFactor(0)
+      ring.lineStyle(2, col, 0.85)
+      ring.strokeCircle(px, py, r)
+      s.tweens.add({
+        targets: ring, alpha: 0, scaleX: 2.2, scaleY: 2.2,
+        duration: 400, ease: 'Power3',
+        onComplete: () => ring.destroy(),
+      })
+    }
+
+    // 消散竖烟（3条上升粒子）
+    for (let k = 0; k < 3; k++) {
+      const smoke = s.add.graphics().setDepth(99988).setScrollFactor(0)
+      smoke.fillStyle(color, 0.45)
+      smoke.fillCircle(px + (k-1)*10, py, 5 + k*2)
+      s.tweens.add({
+        targets: smoke,
+        y: py - 40 - k * 15,
+        alpha: 0,
+        scaleX: 2, scaleY: 2,
+        duration: 700 + k * 150,
+        ease: 'Sine.easeOut',
+        onComplete: () => smoke.destroy(),
+      })
+    }
+
+    // "消灭" 浮字
+    const col = '#' + color.toString(16).padStart(6, '0')
+    const txt = s.add.text(px, py - 14, '✦ 击杀!', {
+      fontSize: '12px', color: col, fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(99991).setScrollFactor(0)
+    s.tweens.add({
+      targets: txt, y: py - 55, alpha: 0,
+      duration: 1200, ease: 'Power2',
+      onComplete: () => txt.destroy(),
+    })
   }
 
   // ── Floating text ────────────────────────────────────────────────────────

@@ -21,6 +21,8 @@ import { PlantSystem } from '../entities/PlantSystem.js'
 import { InsectSystem } from '../entities/InsectSystem.js'
 import { MonsterSystem } from '../entities/MonsterSystem.js'
 import { CombatSystem } from '../systems/CombatSystem.js'
+import { DayNightSystem } from '../systems/DayNightSystem.js'
+import { WeatherSystem } from '../systems/WeatherSystem.js'
 import { BIOME_ID_TO_TILE_KEY } from '../utils/BiomeTileMap.js'
 
 const TILE_W = 64        // 等距瓦片宽
@@ -123,6 +125,10 @@ export default class WorldScene extends Phaser.Scene {
     baseBtn.on('pointerout',  () => baseBtn.setStyle({ color: '#ffe0aa' }))
 
     this.combatSystem.buildUI(width, height)
+
+    // ── 昼夜循环 + 天气系统 ────────────────────────────────────────────────
+    this.dayNightSystem = new DayNightSystem(this, { startTime: 0.33 /* 从早晨开始 */ })
+    this.weatherSystem  = new WeatherSystem(this)
 
     // 初始怪物生成
     for (let i = 0; i < 3; i++) {
@@ -481,6 +487,13 @@ export default class WorldScene extends Phaser.Scene {
     if (this.insectSystem) this.insectSystem.update(dt, now)
     if (this.plantSystem)  this.plantSystem.update(now)
     if (this.combatSystem) this.combatSystem.update(dt)
+
+    // ── 昼夜 + 天气 ────────────────────────────────────────────────────────
+    if (this.dayNightSystem) this.dayNightSystem.update(dt)
+    if (this.weatherSystem) {
+      const biome = this.worldGen?.getBiome(this.playerTile.x, this.playerTile.y) ?? 0
+      this.weatherSystem.update(dt, biome)
+    }
 
     // ── 怪物 AI 更新 ──────────────────────────────────────────────────────
     if (this.monsterSystem && this.worldGen) {
