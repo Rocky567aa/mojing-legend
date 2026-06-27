@@ -19,6 +19,8 @@ import { PickupNotification } from '../ui/PickupNotification.js'
 import { DecorationSystem } from '../systems/DecorationSystem.js'
 import { PlantSystem } from '../entities/PlantSystem.js'
 import { InsectSystem } from '../entities/InsectSystem.js'
+import { MonsterSystem } from '../entities/MonsterSystem.js'
+import { CombatSystem } from '../systems/CombatSystem.js'
 
 const TILE_W = 64        // 等距瓦片宽
 const TILE_H = 32        // 等距瓦片高
@@ -42,6 +44,8 @@ export default class WorldScene extends Phaser.Scene {
     this.decoSystem = null
     this.plantSystem = null
     this.insectSystem = null
+    this.monsterSystem = null
+    this.combatSystem  = null
   }
 
   init(data) {
@@ -66,6 +70,9 @@ export default class WorldScene extends Phaser.Scene {
     this.decoSystem = new DecorationSystem(this, this.worldContainer)
     this.insectSystem = new InsectSystem(this, this.worldContainer)
     this.plantSystem = new PlantSystem(this, this.worldContainer, this.insectSystem)
+    this.monsterSystem = new MonsterSystem(this, this.worldContainer)
+    this.combatSystem  = new CombatSystem(this)
+    this.combatSystem.init(this.saveData?.profession ?? 'kane')
 
     // 加载初始区块
     this.loadVisibleChunks()
@@ -113,6 +120,16 @@ export default class WorldScene extends Phaser.Scene {
     })
     baseBtn.on('pointerover', () => baseBtn.setStyle({ color: '#ffffff' }))
     baseBtn.on('pointerout',  () => baseBtn.setStyle({ color: '#ffe0aa' }))
+
+    this.combatSystem.buildUI(width, height)
+
+    // 初始怪物生成
+    for (let i = 0; i < 3; i++) {
+      this.monsterSystem.trySpawnNear(
+        this.playerTile, this.worldGen,
+        (wx, wy, h) => this.tileToScreen(wx, wy, h)
+      )
+    }
 
     this.updateUI()
 
@@ -408,9 +425,10 @@ export default class WorldScene extends Phaser.Scene {
 
   createPlayerGraphic() {
     const profColors = {
-      warrior: 0xff4400, mage_frost: 0x44aaff,
-      assassin: 0xffdd00, warlock: 0x8800cc,
-      paladin: 0xffee88, alchemist: 0xff66ff,
+      kane: 0xff5500, vera: 0xffdd00, oren: 0x44aaff, lena: 0xffee88,
+      ella: 0x44ff88, reg: 0xff8800, mag: 0x9900cc, thor: 0x88ddff,
+      // legacy
+      warrior: 0xff4400, mage_frost: 0x44aaff, assassin: 0xffdd00, warlock: 0x8800cc,
     }
     const col = profColors[this.saveData?.profession] || 0xffffff
     const g = this.add.graphics()
@@ -442,10 +460,28 @@ export default class WorldScene extends Phaser.Scene {
   // ── 更新循环 ──────────────────────────────────────────────────────────────
 
   update(time, delta) {
+    const now  = this.time.now
+    const dt   = delta ?? 16
+
     // ── 生物系统帧更新 ─────────────────────────────────────────────────────
-    const now = this.time.now
-    if (this.insectSystem) this.insectSystem.update(delta ?? 16, now)
+    if (this.insectSystem) this.insectSystem.update(dt, now)
     if (this.plantSystem)  this.plantSystem.update(now)
+    if (this.combatSystem) this.combatSystem.update(dt)
+
+    // ── 怪物 AI 更新 ──────────────────────────────────────────────────────
+    if (this.monsterSystem && this.worldGen) {
+      const { sx: psx, sy: psy } = this.tileToScreen(
+        this.playerTile.x, this.playerTile.y,
+        this.worldGen.getHeight(this.playerTile.x, this.playerTile.y)
+      )
+      const attacks = this.monsterSystem.update(dt, psx, psy)
+      if (attacks && this.combatSystem) {
+        for (const { atk } of attacks) {
+          const dmg = Math.round(atk * (0.85 + Math.random() * 0.3))
+          this.combatSystem.takeDamage(dmg)
+        }
+      }
+    }
 
     if (time - this.moveTimer < 160) return
 
@@ -463,6 +499,17 @@ export default class WorldScene extends Phaser.Scene {
       this.loadVisibleChunks()
       this.updateUI()
       this.moveTimer = time
+      // 玩家移动时尝试在周围生成怪物
+      if (this.monsterSystem && this.worldGen) {
+        this.monsterSystem.trySpawnNear(
+          this.playerTile, this.worldGen,
+          (wx, wy, h) => this.tileToScreen(wx, wy, h)
+        )
+        const { sx: psx2, sy: psy2 } = this.tileToScreen(
+          nx, ny, this.worldGen.getHeight(nx, ny)
+        )
+        this.monsterSystem.pruneFar(psx2, psy2)
+      }
     }
   }
 
@@ -489,6 +536,17 @@ export default class WorldScene extends Phaser.Scene {
   // ── 挖矿交互 ──────────────────────────────────────────────────────────────
 
   handleClick(ptr) {
+    // 先检测是否点到怪物 → 攻击
+    const lx = ptr.x - this.worldContainer.x
+    const ly = ptr.y - this.worldContainer.y
+    if (this.monsterSystem && this.combatSystem) {
+      const m = this.monsterSystem.getAt(lx, ly)
+      if (m) {
+        this.combatSystem.attack(m)
+        return
+      }
+    }
+
     // 屏幕坐标 → 世界格坐标
     const rx = ptr.x - this.worldContainer.x
     const ry = ptr.y - this.worldContainer.y
