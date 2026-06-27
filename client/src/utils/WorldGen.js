@@ -47,6 +47,22 @@ export const BIOME = {
   THUNDER_HIGHLAND: 3,
   DARK_CAVERN: 4,
   HOLY_RUINS: 5,
+  // 15 New Biomes
+  CORRUPT_SWAMP: 6,
+  CRYSTAL_CAVES: 7,
+  LAVA_PLATEAU: 8,
+  AURORA_TUNDRA: 9,
+  GHOST_BAY: 10,
+  TOXIC_JUNGLE: 11,
+  ASH_DESERT: 12,
+  RUSTED_RUINS: 13,
+  METEOR_CRATER: 14,
+  ABYSS_RIFT: 15,
+  MUSHROOM_FOREST: 16,
+  MIRAGE_OASIS: 17,
+  SILVER_PEAKS: 18,
+  DECAY_FOREST: 19,
+  CHAOS_FORGE: 20,
 }
 
 const BIOME_NAMES = {
@@ -56,6 +72,21 @@ const BIOME_NAMES = {
   3: '⛈️ 裂空高地',
   4: '🌑 幽暗地穴',
   5: '🏛️ 神圣遗迹',
+  6: '🌿 腐化沼泽',
+  7: '💎 水晶洞穴',
+  8: '🌋 熔岩高原',
+  9: '🌌 极光冻原',
+  10: '👻 幽灵海湾',
+  11: '🌿 毒素丛林',
+  12: '💀 骨灰荒漠',
+  13: '⚙️ 废铁遗迹',
+  14: '☄️ 陨石荒地',
+  15: '⚫ 深渊裂缝',
+  16: '🍄 巨菇密林',
+  17: '🌴 幻境绿洲',
+  18: '🏔️ 银雪山脉',
+  19: '🍂 腐朽密林',
+  20: '🌈 混沌熔炉',
 }
 
 // 每个群系有多个 Voronoi 种子点（归一化坐标 0-1）
@@ -92,6 +123,70 @@ const BIOME_SEEDS = [
   // HOLY_RUINS (目标 10%，散布角落，最远 + 最少)
   { biome: 5, x: 0.92, y: 0.08 },
   { biome: 5, x: 0.08, y: 0.92 },
+
+  // CORRUPT_SWAMP (左侧中段)
+  { biome: 6, x: 0.12, y: 0.48 },
+  { biome: 6, x: 0.08, y: 0.55 },
+  { biome: 6, x: 0.18, y: 0.42 },
+
+  // CRYSTAL_CAVES (右侧中段)
+  { biome: 7, x: 0.86, y: 0.46 },
+  { biome: 7, x: 0.92, y: 0.52 },
+  { biome: 7, x: 0.80, y: 0.40 },
+
+  // LAVA_PLATEAU (底部中央)
+  { biome: 8, x: 0.48, y: 0.82 },
+  { biome: 8, x: 0.55, y: 0.88 },
+  { biome: 8, x: 0.42, y: 0.88 },
+
+  // AURORA_TUNDRA (顶部中央)
+  { biome: 9, x: 0.50, y: 0.12 },
+  { biome: 9, x: 0.44, y: 0.08 },
+  { biome: 9, x: 0.56, y: 0.08 },
+
+  // GHOST_BAY (左下近角)
+  { biome: 10, x: 0.30, y: 0.82 },
+  { biome: 10, x: 0.22, y: 0.88 },
+
+  // TOXIC_JUNGLE (右上近角)
+  { biome: 11, x: 0.66, y: 0.14 },
+  { biome: 11, x: 0.72, y: 0.08 },
+
+  // ASH_DESERT (右下中段)
+  { biome: 12, x: 0.65, y: 0.80 },
+  { biome: 12, x: 0.70, y: 0.86 },
+
+  // RUSTED_RUINS (左上中段)
+  { biome: 13, x: 0.30, y: 0.16 },
+  { biome: 13, x: 0.36, y: 0.10 },
+
+  // METEOR_CRATER (右侧偏中)
+  { biome: 14, x: 0.72, y: 0.46 },
+  { biome: 14, x: 0.78, y: 0.38 },
+
+  // ABYSS_RIFT (右下近角)
+  { biome: 15, x: 0.62, y: 0.68 },
+  { biome: 15, x: 0.68, y: 0.74 },
+
+  // MUSHROOM_FOREST (左上中下)
+  { biome: 16, x: 0.30, y: 0.36 },
+  { biome: 16, x: 0.22, y: 0.30 },
+
+  // MIRAGE_OASIS (中下偏左)
+  { biome: 17, x: 0.38, y: 0.68 },
+  { biome: 17, x: 0.32, y: 0.74 },
+
+  // SILVER_PEAKS (左上偏中)
+  { biome: 18, x: 0.36, y: 0.22 },
+  { biome: 18, x: 0.28, y: 0.26 },
+
+  // DECAY_FOREST (右上偏中)
+  { biome: 19, x: 0.62, y: 0.34 },
+  { biome: 19, x: 0.68, y: 0.28 },
+
+  // CHAOS_FORGE (远角×2)
+  { biome: 20, x: 0.06, y: 0.06 },
+  { biome: 20, x: 0.94, y: 0.94 },
 ]
 
 // ── 瓦片系统 ──────────────────────────────────────────────────────────────────
@@ -119,6 +214,50 @@ export const TILE = {
   CRACKED_GROUND: 25,   // 龟裂地面（火焰区变体）
   SNOW_PATCH: 26,       // 积雪地面（冰原变体）
   DARK_SLIME: 27,       // 暗影地浆（地穴变体）
+  // ── New biome tiles ──
+  SWAMP_MUD: 28,        // 沼泽腐泥
+  TOXIC_POOL: 29,       // 毒液水池（动态）
+  CRYSTAL_FLOOR: 30,    // 水晶地面
+  CRYSTAL_GLOW: 31,     // 水晶发光地（动态）
+  MAGMA_ROCK: 32,       // 岩浆岩石
+  LAVA_RIVER: 33,       // 熔岩河（动态）
+  PERMAFROST: 34,       // 永久冻土
+  AURORA_STONE: 35,     // 极光石（动态）
+  GHOST_WATER: 36,      // 幽灵浅水
+  SPIRIT_GLOW: 37,      // 灵魂光晕（动态）
+  TOXIC_EARTH: 38,      // 毒素土壤
+  ACID_POOL: 39,        // 酸液水池（动态）
+  ASH_GROUND: 40,       // 骨灰地面
+  BONE_STONE: 41,       // 骨石
+  RUST_FLOOR: 42,       // 铁锈地板
+  METAL_PLATE: 43,      // 金属板
+  OIL_SLICK: 44,        // 油污地面（动态）
+  CRATER_ROCK: 45,      // 陨石岩
+  CRATER_GLOW: 46,      // 陨石坑发光（动态）
+  ABYSS_CRACK: 47,      // 深渊裂缝（动态）
+  MYCELIUM: 48,         // 菌丝地面
+  SPORE_GLOW: 49,       // 孢子发光（动态）
+  OASIS_SAND: 50,       // 绿洲沙土
+  OASIS_WATER: 51,      // 绿洲水面（动态）
+  GLACIER: 52,          // 冰川
+  SILVER_STONE: 53,     // 银石
+  DECAY_EARTH: 54,      // 腐朽土壤
+  LEAF_CARPET: 55,      // 枯叶地毯
+  CHAOS_STONE: 56,      // 混沌石（动态色变）
+  CHAOS_PULSE: 57,      // 混沌脉冲（动态）
+  // New ores
+  CRYSTAL_ORE: 58,      // 水晶矿
+  AURORA_ORE: 59,       // 极光矿
+  GHOST_ORE: 60,        // 幽灵晶
+  TOXIC_ORE: 61,        // 毒素矿
+  BONE_ORE: 62,         // 骨灰矿
+  STEEL_ORE: 63,        // 钢铁矿
+  METEOR_ORE: 64,       // 陨石矿
+  VOID_ORE: 65,         // 虚空矿
+  SPORE_ORE: 66,        // 孢子晶
+  SAND_ORE: 67,         // 沙金矿
+  SILVER_ORE: 68,       // 银矿
+  DECAY_ORE: 69,        // 枯木矿
 }
 
 // 每个生物群系的地面瓦片配置（含动态瓦片权重 + 装饰物规则）
@@ -221,6 +360,209 @@ const BIOME_TILES = {
       { deco: 2,  prob: 0.006 },   // BANNER 旗帜
     ],
   },
+
+  [BIOME.CORRUPT_SWAMP]: {
+    base: [TILE.SWAMP_MUD, TILE.SWAMP_MUD, TILE.SWAMP_MUD, TILE.COBBLESTONE, TILE.DARK_SLIME],
+    animated: [TILE.TOXIC_POOL],
+    animatedThreshold: 0.60,
+    ore: TILE.DARK_ORE,
+    oreDensity: 0.055,
+    oreVeinScale: 0.07,
+    oreVeinThreshold: 0.45,
+    rareOre: TILE.TOXIC_ORE,
+    rareDensity: 0.025,
+    rareVeinScale: 0.09,
+    rareVeinThreshold: 0.55,
+    decoRules: [{ deco: 12, prob: 0.015 }, { deco: 7, prob: 0.010 }],
+  },
+  [BIOME.CRYSTAL_CAVES]: {
+    base: [TILE.CRYSTAL_FLOOR, TILE.CRYSTAL_FLOOR, TILE.DARK_CRYSTAL_FLOOR, TILE.VOID_STONE, TILE.ICE],
+    animated: [TILE.CRYSTAL_GLOW],
+    animatedThreshold: 0.52,
+    ore: TILE.CRYSTAL_ORE,
+    oreDensity: 0.060,
+    oreVeinScale: 0.08,
+    oreVeinThreshold: 0.44,
+    decoRules: [{ deco: 4, prob: 0.020 }, { deco: 1, prob: 0.008 }],
+  },
+  [BIOME.LAVA_PLATEAU]: {
+    base: [TILE.MAGMA_ROCK, TILE.MAGMA_ROCK, TILE.LAVA_CRACK, TILE.OBSIDIAN, TILE.CRACKED_GROUND],
+    animated: [TILE.LAVA_RIVER],
+    animatedThreshold: 0.48,
+    ore: TILE.FIRE_ORE,
+    oreDensity: 0.075,
+    oreVeinScale: 0.09,
+    oreVeinThreshold: 0.42,
+    rareOre: TILE.CHAOS_ORE,
+    rareDensity: 0.004,
+    rareVeinScale: 0.12,
+    rareVeinThreshold: 0.70,
+    decoRules: [{ deco: 9, prob: 0.020 }, { deco: 0, prob: 0.012 }],
+  },
+  [BIOME.AURORA_TUNDRA]: {
+    base: [TILE.PERMAFROST, TILE.ICE, TILE.FROST_STONE, TILE.SNOW_PATCH, TILE.SNOW_PATCH],
+    animated: [TILE.AURORA_STONE],
+    animatedThreshold: 0.50,
+    ore: TILE.ICE_ORE,
+    oreDensity: 0.060,
+    oreVeinScale: 0.08,
+    oreVeinThreshold: 0.45,
+    rareOre: TILE.AURORA_ORE,
+    rareDensity: 0.022,
+    rareVeinScale: 0.10,
+    rareVeinThreshold: 0.55,
+    decoRules: [{ deco: 10, prob: 0.022 }, { deco: 4, prob: 0.008 }],
+  },
+  [BIOME.GHOST_BAY]: {
+    base: [TILE.GHOST_WATER, TILE.GHOST_WATER, TILE.COBBLESTONE, TILE.DARK_SLIME, TILE.VOID_STONE],
+    animated: [TILE.SPIRIT_GLOW],
+    animatedThreshold: 0.55,
+    ore: TILE.DARK_ORE,
+    oreDensity: 0.040,
+    oreVeinScale: 0.06,
+    oreVeinThreshold: 0.50,
+    rareOre: TILE.GHOST_ORE,
+    rareDensity: 0.018,
+    rareVeinScale: 0.09,
+    rareVeinThreshold: 0.58,
+    decoRules: [{ deco: 1, prob: 0.012 }, { deco: 7, prob: 0.008 }],
+  },
+  [BIOME.TOXIC_JUNGLE]: {
+    base: [TILE.TOXIC_EARTH, TILE.TOXIC_EARTH, TILE.COBBLESTONE, TILE.GRASS, TILE.MOSSY_STONE],
+    animated: [TILE.ACID_POOL],
+    animatedThreshold: 0.58,
+    ore: TILE.TOXIC_ORE,
+    oreDensity: 0.055,
+    oreVeinScale: 0.08,
+    oreVeinThreshold: 0.46,
+    decoRules: [{ deco: 5, prob: 0.020 }, { deco: 12, prob: 0.010 }],
+  },
+  [BIOME.ASH_DESERT]: {
+    base: [TILE.ASH_GROUND, TILE.ASH_GROUND, TILE.BONE_STONE, TILE.COBBLESTONE, TILE.ASH_GROUND],
+    animated: [],
+    animatedThreshold: 0.90,
+    ore: TILE.BONE_ORE,
+    oreDensity: 0.050,
+    oreVeinScale: 0.07,
+    oreVeinThreshold: 0.47,
+    rareOre: TILE.HOLY_ORE,
+    rareDensity: 0.008,
+    rareVeinScale: 0.10,
+    rareVeinThreshold: 0.68,
+    decoRules: [{ deco: 7, prob: 0.014 }, { deco: 8, prob: 0.008 }],
+  },
+  [BIOME.RUSTED_RUINS]: {
+    base: [TILE.RUST_FLOOR, TILE.RUST_FLOOR, TILE.METAL_PLATE, TILE.COBBLESTONE, TILE.CRACKED_GROUND],
+    animated: [TILE.OIL_SLICK],
+    animatedThreshold: 0.62,
+    ore: TILE.THUNDER_ORE,
+    oreDensity: 0.048,
+    oreVeinScale: 0.07,
+    oreVeinThreshold: 0.48,
+    rareOre: TILE.STEEL_ORE,
+    rareDensity: 0.030,
+    rareVeinScale: 0.09,
+    rareVeinThreshold: 0.50,
+    decoRules: [{ deco: 6, prob: 0.018 }, { deco: 11, prob: 0.010 }],
+  },
+  [BIOME.METEOR_CRATER]: {
+    base: [TILE.CRATER_ROCK, TILE.CRATER_ROCK, TILE.SCORCHED_ROCK, TILE.OBSIDIAN, TILE.CRACKED_GROUND],
+    animated: [TILE.CRATER_GLOW],
+    animatedThreshold: 0.55,
+    ore: TILE.METEOR_ORE,
+    oreDensity: 0.055,
+    oreVeinScale: 0.08,
+    oreVeinThreshold: 0.45,
+    rareOre: TILE.CHAOS_ORE,
+    rareDensity: 0.012,
+    rareVeinScale: 0.11,
+    rareVeinThreshold: 0.65,
+    decoRules: [{ deco: 8, prob: 0.012 }, { deco: 7, prob: 0.008 }],
+  },
+  [BIOME.ABYSS_RIFT]: {
+    base: [TILE.VOID_STONE, TILE.VOID_STONE, TILE.ABYSS_CRACK, TILE.DARK_CRYSTAL_FLOOR, TILE.DARK_SLIME],
+    animated: [TILE.ABYSS_CRACK],
+    animatedThreshold: 0.45,
+    ore: TILE.VOID_ORE,
+    oreDensity: 0.050,
+    oreVeinScale: 0.08,
+    oreVeinThreshold: 0.46,
+    rareOre: TILE.CHAOS_ORE,
+    rareDensity: 0.030,
+    rareVeinScale: 0.10,
+    rareVeinThreshold: 0.50,
+    decoRules: [{ deco: 4, prob: 0.010 }, { deco: 7, prob: 0.016 }],
+  },
+  [BIOME.MUSHROOM_FOREST]: {
+    base: [TILE.MYCELIUM, TILE.MYCELIUM, TILE.DARK_SLIME, TILE.COBBLESTONE, TILE.MOSS_STONE ?? TILE.MOSSY_STONE],
+    animated: [TILE.SPORE_GLOW],
+    animatedThreshold: 0.50,
+    ore: TILE.DARK_ORE,
+    oreDensity: 0.040,
+    oreVeinScale: 0.06,
+    oreVeinThreshold: 0.50,
+    rareOre: TILE.SPORE_ORE,
+    rareDensity: 0.025,
+    rareVeinScale: 0.09,
+    rareVeinThreshold: 0.55,
+    decoRules: [{ deco: 12, prob: 0.025 }, { deco: 1, prob: 0.008 }],
+  },
+  [BIOME.MIRAGE_OASIS]: {
+    base: [TILE.OASIS_SAND, TILE.OASIS_SAND, TILE.COBBLESTONE, TILE.GRASS, TILE.OASIS_SAND],
+    animated: [TILE.OASIS_WATER],
+    animatedThreshold: 0.62,
+    ore: TILE.HOLY_ORE,
+    oreDensity: 0.042,
+    oreVeinScale: 0.07,
+    oreVeinThreshold: 0.50,
+    rareOre: TILE.SAND_ORE,
+    rareDensity: 0.028,
+    rareVeinScale: 0.09,
+    rareVeinThreshold: 0.52,
+    decoRules: [{ deco: 14, prob: 0.012 }, { deco: 5, prob: 0.014 }],
+  },
+  [BIOME.SILVER_PEAKS]: {
+    base: [TILE.GLACIER, TILE.GLACIER, TILE.SILVER_STONE, TILE.FROST_STONE, TILE.SNOW_PATCH],
+    animated: [TILE.FROST_GLOW],
+    animatedThreshold: 0.55,
+    ore: TILE.ICE_ORE,
+    oreDensity: 0.045,
+    oreVeinScale: 0.07,
+    oreVeinThreshold: 0.48,
+    rareOre: TILE.SILVER_ORE,
+    rareDensity: 0.030,
+    rareVeinScale: 0.10,
+    rareVeinThreshold: 0.52,
+    decoRules: [{ deco: 10, prob: 0.020 }, { deco: 4, prob: 0.010 }],
+  },
+  [BIOME.DECAY_FOREST]: {
+    base: [TILE.DECAY_EARTH, TILE.DECAY_EARTH, TILE.LEAF_CARPET, TILE.COBBLESTONE, TILE.MOSSY_STONE],
+    animated: [],
+    animatedThreshold: 0.90,
+    ore: TILE.DARK_ORE,
+    oreDensity: 0.045,
+    oreVeinScale: 0.07,
+    oreVeinThreshold: 0.48,
+    rareOre: TILE.DECAY_ORE,
+    rareDensity: 0.022,
+    rareVeinScale: 0.09,
+    rareVeinThreshold: 0.55,
+    decoRules: [{ deco: 3, prob: 0.012 }, { deco: 5, prob: 0.010 }],
+  },
+  [BIOME.CHAOS_FORGE]: {
+    base: [TILE.CHAOS_STONE, TILE.CHAOS_STONE, TILE.RUNE_STONE, TILE.VOID_STONE, TILE.CHAOS_STONE],
+    animated: [TILE.CHAOS_PULSE],
+    animatedThreshold: 0.40,
+    ore: TILE.CHAOS_ORE,
+    oreDensity: 0.080,
+    oreVeinScale: 0.10,
+    oreVeinThreshold: 0.38,
+    rareOre: TILE.FIRE_ORE,
+    rareDensity: 0.020,
+    rareVeinScale: 0.10,
+    rareVeinThreshold: 0.60,
+    decoRules: [{ deco: 8, prob: 0.020 }, { deco: 13, prob: 0.012 }],
+  },
 }
 
 // ── 西方魔法配色 ─────────────────────────────────────────────────────────────
@@ -258,6 +600,52 @@ export const TILE_COLORS = {
   [TILE.DARK_SLIME]:      { top: 0x0a1a10, left: 0x050c08, right: 0x102218 },
 }
 
+  // New tiles
+  [TILE.SWAMP_MUD]:      { top: 0x2d4a1a, left: 0x1a2a0a, right: 0x3d5a2a },
+  [TILE.TOXIC_POOL]:     { top: 0x1a5a1a, left: 0x0a3a0a, right: 0x2a6a2a },
+  [TILE.CRYSTAL_FLOOR]:  { top: 0x0d3344, left: 0x072233, right: 0x1d4455 },
+  [TILE.CRYSTAL_GLOW]:   { top: 0x00ddee, left: 0x009999, right: 0x22eeee },
+  [TILE.MAGMA_ROCK]:     { top: 0x2a1505, left: 0x1a0a00, right: 0x3a2010 },
+  [TILE.LAVA_RIVER]:     { top: 0xff5500, left: 0xdd3300, right: 0xff7700 },
+  [TILE.PERMAFROST]:     { top: 0xccddee, left: 0xaabbcc, right: 0xddeeff },
+  [TILE.AURORA_STONE]:   { top: 0x44aaff, left: 0x2288dd, right: 0x66ccff },
+  [TILE.GHOST_WATER]:    { top: 0x1a2233, left: 0x111522, right: 0x2a3344 },
+  [TILE.SPIRIT_GLOW]:    { top: 0x8899bb, left: 0x667799, right: 0x99aacc },
+  [TILE.TOXIC_EARTH]:    { top: 0x1a4420, left: 0x0a2a10, right: 0x2a5530 },
+  [TILE.ACID_POOL]:      { top: 0x44ff44, left: 0x22cc22, right: 0x66ff66 },
+  [TILE.ASH_GROUND]:     { top: 0xccccbb, left: 0xaaaaaa, right: 0xddddcc },
+  [TILE.BONE_STONE]:     { top: 0x999988, left: 0x777766, right: 0xaaaaaa },
+  [TILE.RUST_FLOOR]:     { top: 0x553322, left: 0x331100, right: 0x664433 },
+  [TILE.METAL_PLATE]:    { top: 0x555566, left: 0x333344, right: 0x666677 },
+  [TILE.OIL_SLICK]:      { top: 0x111111, left: 0x080808, right: 0x222222 },
+  [TILE.CRATER_ROCK]:    { top: 0x1a1a3a, left: 0x0a0a22, right: 0x2a2a4a },
+  [TILE.CRATER_GLOW]:    { top: 0x4488ff, left: 0x2266dd, right: 0x66aaff },
+  [TILE.ABYSS_CRACK]:    { top: 0xff0033, left: 0xcc0022, right: 0xff2255 },
+  [TILE.MYCELIUM]:       { top: 0x2a1a33, left: 0x1a0a22, right: 0x3a2a44 },
+  [TILE.SPORE_GLOW]:     { top: 0xff88ee, left: 0xdd66cc, right: 0xff99ff },
+  [TILE.OASIS_SAND]:     { top: 0xddcc88, left: 0xbbaa66, right: 0xeedd99 },
+  [TILE.OASIS_WATER]:    { top: 0x22bbaa, left: 0x119988, right: 0x33ccbb },
+  [TILE.GLACIER]:        { top: 0xeeffff, left: 0xccddee, right: 0xffffff },
+  [TILE.SILVER_STONE]:   { top: 0xccddee, left: 0xaabbcc, right: 0xddeeff },
+  [TILE.DECAY_EARTH]:    { top: 0x3a2210, left: 0x1a0a00, right: 0x4a3220 },
+  [TILE.LEAF_CARPET]:    { top: 0xcc6622, left: 0xaa4400, right: 0xdd7733 },
+  [TILE.CHAOS_STONE]:    { top: 0x440044, left: 0x220022, right: 0x660066 },
+  [TILE.CHAOS_PULSE]:    { top: 0xff00ff, left: 0xcc00cc, right: 0xff44ff },
+  // New ores
+  [TILE.CRYSTAL_ORE]:    { top: 0x00eeff, left: 0x009999, right: 0x22ffff },
+  [TILE.AURORA_ORE]:     { top: 0x8844ff, left: 0x6622dd, right: 0xaa66ff },
+  [TILE.GHOST_ORE]:      { top: 0x8899bb, left: 0x667799, right: 0x99aacc },
+  [TILE.TOXIC_ORE]:      { top: 0x44cc44, left: 0x22aa22, right: 0x66ee66 },
+  [TILE.BONE_ORE]:       { top: 0xffeedd, left: 0xddccbb, right: 0xffffff },
+  [TILE.STEEL_ORE]:      { top: 0x8888aa, left: 0x666688, right: 0x9999bb },
+  [TILE.METEOR_ORE]:     { top: 0x6644aa, left: 0x442288, right: 0x8866cc },
+  [TILE.VOID_ORE]:       { top: 0x440044, left: 0x220033, right: 0x660066 },
+  [TILE.SPORE_ORE]:      { top: 0xaa44cc, left: 0x882299, right: 0xcc66ee },
+  [TILE.SAND_ORE]:       { top: 0xffdd44, left: 0xddbb22, right: 0xffee66 },
+  [TILE.SILVER_ORE]:     { top: 0xeeeeff, left: 0xccccdd, right: 0xffffff },
+  [TILE.DECAY_ORE]:      { top: 0x886644, left: 0x664422, right: 0x997755 },
+}
+
 // 矿石信息（名称、发光色、图标、区域标签）
 export const ORE_INFO = {
   [TILE.FIRE_ORE]:   { name: '火玄矿',   glow: 0xff4400, icon: '🔴', drops: 'fire_ore' },
@@ -266,6 +654,18 @@ export const ORE_INFO = {
   [TILE.DARK_ORE]:   { name: '暗影矿脉', glow: 0x7700aa, icon: '🌑', drops: 'dark_ore' },
   [TILE.HOLY_ORE]:   { name: '圣光矿',   glow: 0xffee88, icon: '✨', drops: 'holy_ore' },
   [TILE.CHAOS_ORE]:  { name: '混沌原石', glow: 0xcc99ff, icon: '🌈', drops: 'chaos_ore' },
+  [TILE.CRYSTAL_ORE]:{ name: '水晶矿',   glow: 0x00eeff, icon: '💎', drops: 'crystal_ore' },
+  [TILE.AURORA_ORE]: { name: '极光矿',   glow: 0x8844ff, icon: '🌌', drops: 'aurora_ore' },
+  [TILE.GHOST_ORE]:  { name: '幽灵晶',   glow: 0x8899bb, icon: '👻', drops: 'ghost_ore' },
+  [TILE.TOXIC_ORE]:  { name: '毒素矿',   glow: 0x44cc44, icon: '💜', drops: 'toxic_ore' },
+  [TILE.BONE_ORE]:   { name: '骨灰矿',   glow: 0xffeedd, icon: '🦴', drops: 'bone_ore' },
+  [TILE.STEEL_ORE]:  { name: '钢铁矿',   glow: 0x8888aa, icon: '⚙️', drops: 'steel_ore' },
+  [TILE.METEOR_ORE]: { name: '陨石矿',   glow: 0x6644aa, icon: '☄️', drops: 'meteor_ore' },
+  [TILE.VOID_ORE]:   { name: '虚空矿',   glow: 0x440044, icon: '⚫', drops: 'void_ore' },
+  [TILE.SPORE_ORE]:  { name: '孢子晶',   glow: 0xaa44cc, icon: '🍄', drops: 'spore_ore' },
+  [TILE.SAND_ORE]:   { name: '沙金矿',   glow: 0xffdd44, icon: '🌴', drops: 'sand_ore' },
+  [TILE.SILVER_ORE]: { name: '银矿',     glow: 0xeeeeff, icon: '🏔️', drops: 'silver_ore' },
+  [TILE.DECAY_ORE]:  { name: '枯木矿',   glow: 0x886644, icon: '🍂', drops: 'decay_ore' },
 }
 
 // ── WorldGen 主类 ─────────────────────────────────────────────────────────────
