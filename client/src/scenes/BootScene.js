@@ -1,3 +1,5 @@
+import { preloadBiomeTiles } from '../utils/BiomeTileMap.js'
+
 /**
  * BootScene — 资源预加载场景
  * 加载所有素材后跳转到职业选择场景（新玩家）或世界场景（老玩家）
@@ -29,6 +31,8 @@ export default class BootScene extends Phaser.Scene {
       fontSize: '16px', color: '#8866aa'
     }).setOrigin(0.5)
 
+    // AI-生成地形贴图 (15个新群系)
+    preloadBiomeTiles(this)
     // TODO: 加载等距瓦片图集、角色精灵、魔晶特效图
     // this.load.atlas('tiles', 'assets/tiles/isometric.png', 'assets/tiles/isometric.json')
     // this.load.atlas('crystals', 'assets/crystals/all.png', 'assets/crystals/all.json')

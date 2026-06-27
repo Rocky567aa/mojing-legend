@@ -21,6 +21,7 @@ import { PlantSystem } from '../entities/PlantSystem.js'
 import { InsectSystem } from '../entities/InsectSystem.js'
 import { MonsterSystem } from '../entities/MonsterSystem.js'
 import { CombatSystem } from '../systems/CombatSystem.js'
+import { BIOME_ID_TO_TILE_KEY } from '../utils/BiomeTileMap.js'
 
 const TILE_W = 64        // 等距瓦片宽
 const TILE_H = 32        // 等距瓦片高
@@ -218,7 +219,8 @@ export default class WorldScene extends Phaser.Scene {
     drawCalls.sort((a, b) => a.depth - b.depth)
 
     for (const d of drawCalls) {
-      this.drawTile(d.sx, d.sy, d.tile, d.height, d.depth, container)
+      const biomeId = this.worldGen.getBiome(d.wx, d.wy)
+      this.drawTile(d.sx, d.sy, d.tile, d.height, d.depth, container, biomeId)
 
       // 矿石发光标记
       if (this.worldGen.isOre(d.tile) && ORE_INFO[d.tile]) {
@@ -251,7 +253,7 @@ export default class WorldScene extends Phaser.Scene {
     )
   }
 
-  drawTile(sx, sy, tileType, h, depth, container) {
+  drawTile(sx, sy, tileType, h, depth, container, biomeId = 0) {
     const c = TILE_COLORS[tileType] || TILE_COLORS[TILE.GRASS]
     const hw = TILE_W / 2, hh = TILE_H / 2
     const D = TILE_DEPTH + h * 2  // 高处的砖更厚（视觉强化）
@@ -290,6 +292,18 @@ export default class WorldScene extends Phaser.Scene {
 
     g.setDepth(depth)
     container.add(g)
+
+    // AI-生成地形贴图叠加层 (仅群系 6-20)
+    const aiTileKey = BIOME_ID_TO_TILE_KEY[biomeId]
+    if (aiTileKey && this.textures.exists(aiTileKey)) {
+      const hw = TILE_W / 2, hh = TILE_H / 2
+      // 在顶面中心叠加纹理图像（菱形顶面包裹在矩形图像内，四角被相邻瓦片遮挡）
+      const img = this.add.image(sx, sy, aiTileKey)
+      img.setDisplaySize(TILE_W * 1.05, TILE_H * 1.05)
+      img.setAlpha(0.55)          // 半透明叠加，保留程序色彩底层
+      img.setDepth(depth + 0.01)
+      container.add(img)
+    }
   }
 
   drawOreMarker(sx, sy, info, container) {
