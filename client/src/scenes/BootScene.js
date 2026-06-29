@@ -49,6 +49,6 @@ export default class BootScene extends Phaser.Scene {
       console.warn('[Boot] 存档损坏，已重置', e)
       localStorage.removeItem('mojing_save')
     }
-    this.scene.start('ProfessionSelectScene', { existingSave: saveData })
+    this.scene.start('TitleScene', { existingSave: saveData })
   }
 }
