@@ -315,6 +315,22 @@ export class CombatSystem {
         this._showStatusEnd('中毒', '#44ff88')
       }
     }
+
+    // ── M22: 出血 DoT ───────────────────────────────────────────────────────
+    if ((this._bleedTimer ?? 0) > 0) {
+      this._bleedTimer -= delta
+      this._bleedTick = (this._bleedTick ?? 0) + delta
+      if (this._bleedTick >= 500) {
+        this._bleedTick = 0
+        const d = Math.max(1, Math.round((this._bleedDps ?? 0) * 0.5))
+        this.hp -= d
+        this._updateHpBar()
+        if (this.hpText) this.hpText.setText(`HP ${Math.max(0, Math.round(this.hp))} / ${this.maxHp}`)
+        this._showDmgNum(d, '#ff6666')
+        if (this.hp <= 0 && !this.dead) this._onDeath()
+      }
+      if (this._bleedTimer <= 0) { this._bleedDps = 0; this._showStatusEnd('出血', '#ff4444') }
+    }
   }
 
   // ── Medicine / Food API ───────────────────────────────────────────────────
@@ -356,6 +372,14 @@ export class CombatSystem {
     this._poisonDps   = Math.max(this._poisonDps, dps)
     this._poisonTimer = Math.max(this._poisonTimer, dur * 1000)
     this._showStatusStart(`☠ 中毒 (${dur}s)`, '#44ff88')
+  }
+
+  /** M22: 出血（无视抗性，直接 DoT） */
+  applyBleed(dps, dur = 3) {
+    if (this.dead) return
+    this._bleedDps   = Math.max(this._bleedDps ?? 0, dps)
+    this._bleedTimer = Math.max(this._bleedTimer ?? 0, dur * 1000)
+    this._showStatusStart(`🩸 出血 (${dur}s)`, '#ff4444')
   }
 
   /**
