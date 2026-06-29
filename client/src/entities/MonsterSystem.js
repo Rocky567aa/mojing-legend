@@ -192,11 +192,24 @@ export class MonsterSystem {
     this.monsters = []
     this.MAX = 28
     this._spawnTimer = 0
+    // M13: BiomeSystem director (set externally after construction)
+    this.biomeSystem = null
+  }
+
+  /** 当前玩家等级（用于难度缩放），从 CombatSystem 读取 */
+  get _playerLevel() {
+    return this.scene.combatSystem?.level ?? 1
+  }
+
+  /** 当前怪物上限：有 BiomeSystem 时按等级 + 昼夜动态裁决 */
+  get _maxMonsters() {
+    if (this.biomeSystem) return this.biomeSystem.getMaxMonsters(this._playerLevel)
+    return this.MAX
   }
 
   // Call when player moves; tries to populate monsters near player
   trySpawnNear(playerTile, worldGen, tileToScreen) {
-    if (this.monsters.length >= this.MAX) return
+    if (this.monsters.length >= this._maxMonsters) return
     const { x: px, y: py } = playerTile
     const R = 9
     const attempts = 4
@@ -207,23 +220,80 @@ export class MonsterSystem {
       if (gap < 4 || gap > R) continue
       if (tx < 0 || ty < 0) continue
       const biome = worldGen.getBiome(tx, ty)
+      const h = worldGen.getHeight(tx, ty)
+      const { sx, sy } = tileToScreen(tx, ty, h)
+
+      // ── M13 路径：BiomeSystem 分等级生成（密度/精英/Boss/夜间已在内部裁决）
+      if (this.biomeSystem) {
+        // 受群系危险系数影响的刷新积极度
+        const danger = this.biomeSystem.getDangerFactor(biome)
+        if (Math.random() > 0.5 * danger) continue
+        const desc = this.biomeSystem.rollSpawn(biome, this._playerLevel)
+        if (!desc) continue
+        this._spawnFromDesc(desc, sx, sy - 8)
+        if (this.monsters.length >= this._maxMonsters) return
+        continue
+      }
+
+      // ── 回退路径：旧 BIOME_MONSTERS 内置表
       const types = BIOME_MONSTERS[biome]
       if (!types) continue
       const type = Phaser.Utils.Array.GetRandom(types)
       if (Math.random() > type.density * 80) continue
-      const h = worldGen.getHeight(tx, ty)
-      const { sx, sy } = tileToScreen(tx, ty, h)
       this._spawn(type, sx, sy - 8, biome)
     }
   }
 
-  _spawn(type, sx, sy) {
+  /**
+   * M13：把 BiomeSystem.rollSpawn() 的描述转成 MonsterSystem 内部 type 并生成。
+   * @param {SpawnDesc} desc
+   */
+  _spawnFromDesc(desc, sx, sy) {
+    const { stats, render, name, isElite, isBoss, sizeScale } = desc
+    // 攻击综合物理+魔法
+    const atk = (stats.physAtk ?? 0) + (stats.magAtk ?? 0)
+    // 速度：Boss 慢、精英略快、普通中等
+    const speed = isBoss ? 38 : isElite ? 62 : 52
+
+    // lootTable(string[]) → drops 对象
+    const drops = (stats.lootTable ?? []).map(item => ({
+      item,
+      itemName: item,
+      color: render.glowColor,
+      chance: stats.dropRate ?? 0.2,
+      count: isBoss ? [2, 4] : 1,
+    }))
+
+    const type = {
+      id: desc.id,
+      name,
+      shape: render.shape,
+      color: render.color,
+      glowColor: render.glowColor,
+      hp: stats.hp,
+      atk,
+      speed,
+      aggroRange: isBoss ? 240 : 175,
+      attackRange: isBoss ? 55 : 42,
+      attackCooldown: isBoss ? 1100 : 1500,
+      xp: stats.xp,
+      drops,
+      isElite,
+      isBoss,
+    }
+    this._spawn(type, sx, sy, undefined, sizeScale)
+  }
+
+  _spawn(type, sx, sy, _biome, sizeScale = 1.0) {
     const m = {
       type, sx, sy,
       hp: type.hp, maxHp: type.hp, atk: type.atk,
       state: 'wander',
       wdx: 0, wdy: 0, wTimer: 0,
       atkTimer: 0,
+      sizeScale,
+      isElite: !!type.isElite,
+      isBoss: !!type.isBoss,
       id: ++MonsterSystem._uid,
       gfx: null, hpBg: null, hpFill: null, label: null,
     }
@@ -239,6 +309,7 @@ export class MonsterSystem {
     m.gfx.x = sx; m.gfx.y = sy
     m.gfx.setDepth(1000 + sy)
     this._drawShape(m.gfx, type)
+    if (m.sizeScale && m.sizeScale !== 1.0) m.gfx.setScale(m.sizeScale)
     wc.add(m.gfx)
 
     m.hpBg = s.add.graphics()
