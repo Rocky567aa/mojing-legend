@@ -323,10 +323,16 @@ export class CombatSystem {
       if (this._bleedTick >= 500) {
         this._bleedTick = 0
         const d = Math.max(1, Math.round((this._bleedDps ?? 0) * 0.5))
-        this.hp -= d
-        this._updateHpBar()
-        if (this.hpText) this.hpText.setText(`HP ${Math.max(0, Math.round(this.hp))} / ${this.maxHp}`)
-        this._showDmgNum(d, '#ff6666')
+        this.hp = Math.max(0, this.hp - d)
+        this.refreshUI()
+        const s = this.scene
+        const { width, height } = s.scale
+        const txt = s.add.text(width / 2 - 20, height / 2 - 30, `🩸 -${d}`, {
+          fontSize: '10px', color: '#ff6666',
+          stroke: '#000000', strokeThickness: 2,
+        }).setOrigin(0.5).setDepth(498).setScrollFactor(0)
+        s.tweens.add({ targets: txt, y: '-=14', alpha: 0, duration: 900,
+          onComplete: () => txt.destroy() })
         if (this.hp <= 0 && !this.dead) this._onDeath()
       }
       if (this._bleedTimer <= 0) { this._bleedDps = 0; this._showStatusEnd('出血', '#ff4444') }
