@@ -36,7 +36,7 @@ export const HERO_MEDICINE = {
   // ──────────────────────────────────────────────────────────────────────
 
   /** 卡恩 · 战士 — 粗糙体质，药效减半但毒性强耐 */
-  kain: {
+  kane: {
     ...DEFAULT_MED,
     potionHeal:   0.80,  // 皮糙肉厚，药效吸收差，回血仅 80%
     poisonResist: 0.30,  // 战场老兵，有一定毒性抵抗
@@ -46,7 +46,7 @@ export const HERO_MEDICINE = {
   },
 
   /** 薇拉 · 刺客 — 毒师，中毒免疫 + 施毒专家 */
-  vira: {
+  vera: {
     ...DEFAULT_MED,
     potionHeal:   0.90,
     poisonResist: 0.65,  // 长期与毒打交道，抵抗力高
@@ -68,7 +68,7 @@ export const HERO_MEDICINE = {
   },
 
   /** 莉娜 · 牧师 — 医药之神，全方位最强治疗者 */
-  lina: {
+  lena: {
     ...DEFAULT_MED,
     potionHeal:   1.60,  // 神圣加持，药剂回血 ×1.6
     poisonResist: 0.50,  // 熟知毒理，抵抗中等
@@ -113,7 +113,7 @@ export const HERO_MEDICINE = {
   },
 
   /** 托尔 · 游侠 — 野外生存，草药使用熟练 */
-  tor: {
+  thor: {
     ...DEFAULT_MED,
     potionHeal:   1.15,
     poisonResist: 0.35,
