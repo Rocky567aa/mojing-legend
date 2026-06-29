@@ -321,31 +321,3 @@ export const BIOME_CONTENT_C = {
 
 }
 
-// ── Helper Functions ──────────────────────────────────────────────────────────
-
-/** 获取群系内容 */
-export function getBiomeContent(biomeId) {
-  return BIOME_CONTENT[biomeId] ?? null
-}
-
-/** 获取群系所有蘑菇（可选过滤 edible/toxic）*/
-export function getBiomeMushrooms(biomeId, type = null) {
-  const content = BIOME_CONTENT[biomeId]
-  if (!content) return []
-  return type ? content.mushrooms.filter(m => m.type === type) : content.mushrooms
-}
-
-/** 获取群系所有植物（可选过滤 edible/medicine/hazard/decorative/rare）*/
-export function getBiomePlants(biomeId, type = null) {
-  const content = BIOME_CONTENT[biomeId]
-  if (!content) return []
-  return type ? content.plants.filter(p => p.type === type) : content.plants
-}
-
-/** 获取群系 Boss 列表（可选过滤 field/area/zone）*/
-export function getBiomeBosses(biomeId, tier = null) {
-  const content = BIOME_CONTENT[biomeId]
-  if (!content) return []
-  return tier ? content.bosses.filter(b => b.tier === tier) : content.bosses
-}
-};
