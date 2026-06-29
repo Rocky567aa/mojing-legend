@@ -18,6 +18,18 @@
  *   - 播放"咬合"动画 + 咀嚼粒子
  */
 
+import { getBiomeContent } from '../data/BiomeContentMap.js'
+
+// M16: 物种类型 → 叶茎颜色
+const SPECIES_COLORS = {
+  edible:     0x2d8a2d,
+  medicine:   0x9aaa22,
+  hazard:     0xcc4411,
+  rare:       0x9933cc,
+  decorative: 0x4477aa,
+  default:    0x2d8a2d,
+}
+
 export const PLANT_TYPE = {
   NORMAL:      0,  // 普通植物
   CARNIVOROUS: 1,  // 食虫植物
@@ -138,23 +150,48 @@ export class PlantSystem {
     }
   }
 
+  // M16: 从 BiomeContentMap 按类型随机选一个物种
+  _pickSpecies(biome, type, wx, wy) {
+    const content = getBiomeContent(biome)
+    if (!content) return null
+    const pool = type === PLANT_TYPE.TOXIC
+      ? (content.plants ?? []).filter(p => p.type === 'hazard')
+      : type === PLANT_TYPE.NORMAL
+        ? (content.plants ?? []).filter(p => p.type !== 'hazard')
+        : null
+    if (!pool || pool.length === 0) return null
+    const idx = Math.abs(this._hash(wx, wy, 0xf00d)) % pool.length
+    return pool[idx]
+  }
+
   _spawnPlant(wx, wy, sx, sy, type, biome) {
     const key = `${wx}_${wy}`
     const cfg = PLANT_CONFIG[type]
+    // M16: 选取物种
+    const species = this._pickSpecies(biome, type, wx, wy)
+    const speciesColor = species ? (SPECIES_COLORS[species.type] ?? SPECIES_COLORS.default) : null
     const g = this.scene.add.graphics()
 
-    // 公共：画植物基础形态
-    this._drawPlantGraphic(g, sx, sy, type, biome)
+    // 公共：画植物基础形态（传入物种色）
+    this._drawPlantGraphic(g, sx, sy, type, biome, speciesColor)
     g.setDepth(wy + wx + 0.5)
     this.container.add(g)
 
     const plant = {
       wx, wy, sx, sy, type, cfg,
       graphics: g,
+      species,          // M16: 物种数据
       state: type === PLANT_TYPE.MONSTER ? 'disguised' : 'idle',
       hp: cfg.hp ?? 0,
       lastAttack: 0,
       captureTarget: null,
+    }
+
+    // M16: 悬停显示物种名称
+    if (species) {
+      g.setInteractive(new Phaser.Geom.Circle(sx, sy - 20, 22), Phaser.Geom.Circle.Contains)
+      g.on('pointerover', () => this._showSpeciesTooltip(plant))
+      g.on('pointerout',  () => this._hideTooltip())
     }
 
     // 食虫植物：添加荧光脉冲 + 注册到活跃列表
@@ -200,29 +237,28 @@ export class PlantSystem {
 
   // ── 植物图形绘制 ──────────────────────────────────────────────────────────
 
-  _drawPlantGraphic(g, sx, sy, type, biome) {
+  _drawPlantGraphic(g, sx, sy, type, biome, speciesColor = null) {
     g.clear()
     switch (type) {
       case PLANT_TYPE.NORMAL:
-        this._drawNormalPlant(g, sx, sy, biome)
+        this._drawNormalPlant(g, sx, sy, biome, speciesColor)
         break
       case PLANT_TYPE.CARNIVOROUS:
         this._drawCarnivorousPlant(g, sx, sy)
         break
       case PLANT_TYPE.TOXIC:
-        this._drawToxicPlant(g, sx, sy)
+        this._drawToxicPlant(g, sx, sy, speciesColor)
         break
       case PLANT_TYPE.MONSTER:
-        // 伪装态：仅绘制叶冠（与普通植物相似但略大）
         this._drawDisguisedMonsterHead(g, sx, sy)
         break
     }
   }
 
-  _drawNormalPlant(g, sx, sy, biome) {
-    // 茎（2px）
+  _drawNormalPlant(g, sx, sy, biome, speciesColor = null) {
+    // M16: 用物种色 > biome备用色 > 默认色
     const biomeColors = [0x2d8a2d, 0x5a3a1a, 0x7ab8d0, 0x5a6a3a, 0x1a5a3a, 0x8a7a4a]
-    const stemColor = biomeColors[biome] ?? 0x2d8a2d
+    const stemColor = speciesColor ?? biomeColors[biome] ?? 0x2d8a2d
     g.fillStyle(stemColor, 1)
     g.fillRect(sx - 1, sy - 22, 2, 14)
     // 叶片（椭圆）
@@ -262,7 +298,9 @@ export class PlantSystem {
     g.fillCircle(sx + 22, sy - 43, 3)
   }
 
-  _drawToxicPlant(g, sx, sy) {
+  _drawToxicPlant(g, sx, sy, speciesColor = null) {
+    const col = speciesColor ?? 0x3a0055
+    const glow = speciesColor ? Phaser.Display.Color.IntegerToColor(col).darken(20).color : 0x7700aa
     // 球茎（黑紫色）
     g.fillStyle(0x3a0055, 1)
     g.fillCircle(sx, sy - 22, 11)
@@ -520,7 +558,7 @@ export class PlantSystem {
     })
   }
 
-  // ── 采集普通植物 ──────────────────────────────────────────────────────────
+  // ── 采集普通植物 (M16 enhanced) ───────────────────────────────────────────
 
   _harvestPlant(plant, key) {
     if (plant.state !== 'idle') return
@@ -536,8 +574,46 @@ export class PlantSystem {
         this.plants.delete(key)
       }
     })
-    this._showActionText(plant.sx, plant.sy - 40, '🌿 采集草药', 0x88ff44)
+    // M16: 应用物种专属效果
+    if (plant.species) {
+      this._applySpeciesHarvest(plant)
+      this._showActionText(plant.sx, plant.sy - 40, `🌿 ${plant.species.name}`, 0x88ff44)
+    } else {
+      this._showActionText(plant.sx, plant.sy - 40, '🌿 采集草药', 0x88ff44)
+    }
   }
+
+  /** M16: 应用 BiomeContentMap 物种效果（通过 FoodSystem / CombatSystem）*/
+  _applySpeciesHarvest(plant) {
+    const sp = plant.species
+    const fs = this.scene.foodSystem
+    const cs = this.scene.combatSystem
+    if (!sp || !cs) return
+    // HP 恢复
+    if (sp.hpRestore > 0) {
+      cs.hp = Math.min(cs.maxHp, cs.hp + sp.hpRestore)
+      cs.refreshUI()
+    }
+    // 效果
+    if (sp.effect && fs) {
+      fs._applyEffect(sp.effect, sp)
+    }
+  }
+
+  /** M16: 悬停 tooltip 显示物种名称 */
+  _showSpeciesTooltip(plant) {
+    this._hideTooltip()
+    if (!plant.species) return
+    const sp = plant.species
+    const label = sp.name + (sp.hpRestore ? `  HP${sp.hpRestore > 0 ? '+' : ''}${sp.hpRestore}` : '')
+    this._tooltip = this.scene.add.text(plant.sx, plant.sy - 45, label, {
+      fontSize: '11px', color: '#eeffcc', stroke: '#000', strokeThickness: 3,
+      backgroundColor: '#00000066', padding: { x: 4, y: 2 },
+    }).setOrigin(0.5, 1).setDepth(9998).setScrollFactor(1)
+    this.container.add(this._tooltip)
+  }
+  _hideTooltip() { this._tooltip?.destroy(); this._tooltip = null }
+
 
   // ── 工具函数 ─────────────────────────────────────────────────────────────
 
