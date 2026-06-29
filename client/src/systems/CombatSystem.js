@@ -146,6 +146,7 @@ export class CombatSystem {
     const dmg = Math.round(isCrit ? base * this.critMul : base)
     const dead = monster.type && this.scene.monsterSystem?.damage(monster, dmg)
     this._showFloat(monster.sx, monster.sy, dmg, isCrit)
+    this.scene.sfx?.hit()
     // M14: 命中钩子（燃烧/冰冻/叠层/标记）
     this.skillSystem?.onAttack(monster, { dmg, isCrit })
     if (dead) this._onKill(monster)
@@ -155,6 +156,7 @@ export class CombatSystem {
   _onKill(m) {
     // ── 怪物死亡特效 ─────────────────────────────────────────────────────
     this._showMonsterDeath(m.sx, m.sy, m.type?.color ?? 0xff4400)
+    this.scene.sfx?.monsterDeath()
 
     const xpGain = m.type?.xp ?? 5
     this.xp += xpGain
@@ -167,6 +169,7 @@ export class CombatSystem {
       this.maxHp = Math.round(this.maxHp * 1.08)
       this.hp = Math.min(this.hp + 20, this.maxHp)
       this._showLevelUp()
+      this.scene.sfx?.levelUp()
       // 升级后重新应用武器加成
       if (this.weaponSystem?.equipped) {
         this.weaponSystem._applyCombatStats()
@@ -210,6 +213,7 @@ export class CombatSystem {
     reduced = Math.round(reduced / physDefMul)
     this.hp = Math.max(0, this.hp - reduced)
     this.refreshUI()
+    this.scene.sfx?.hurt()
 
     // Flash red on player graphic
     const pg = this.scene.playerGraphic
@@ -223,6 +227,7 @@ export class CombatSystem {
   _onDeath() {
     this.dead = true
     const s = this.scene
+    s.sfx?.playerDeath()
     s.cameras.main.shake(600, 0.025)
 
     const { width, height } = s.scale
