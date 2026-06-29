@@ -28,7 +28,7 @@ export const HERO_WEAPON_CONFIG = {
   // ══════════════════════════════════════════════
 
   /** 卡恩 · 战士 */
-  kain: {
+  kane: {
     startingWeapon: {
       type: 'sword',
       name: '铁制长剑',
@@ -50,7 +50,7 @@ export const HERO_WEAPON_CONFIG = {
   },
 
   /** 薇拉 · 刺客 */
-  vira: {
+  vera: {
     startingWeapon: {
       type: 'dagger',
       name: '暗影匕首',
@@ -94,7 +94,7 @@ export const HERO_WEAPON_CONFIG = {
   },
 
   /** 莉娜 · 牧师 */
-  lina: {
+  lena: {
     startingWeapon: {
       type: 'scroll',
       name: '圣光卷轴',
@@ -182,7 +182,7 @@ export const HERO_WEAPON_CONFIG = {
   },
 
   /** 托尔 · 游侠 */
-  tor: {
+  thor: {
     startingWeapon: {
       type: 'bow',
       name: '猎人长弓',
