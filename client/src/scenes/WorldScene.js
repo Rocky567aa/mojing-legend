@@ -24,6 +24,7 @@ import { CombatSystem } from '../systems/CombatSystem.js'
 import { WeaponSystem } from '../systems/WeaponSystem.js'
 import { FoodSystem } from '../systems/FoodSystem.js'
 import { BiomeSystem } from '../systems/BiomeSystem.js'
+import { HazardSystem } from '../systems/HazardSystem.js'
 import { DayNightSystem } from '../systems/DayNightSystem.js'
 import { WeatherSystem } from '../systems/WeatherSystem.js'
 import { BIOME_ID_TO_TILE_KEY } from '../utils/BiomeTileMap.js'
@@ -55,6 +56,7 @@ export default class WorldScene extends Phaser.Scene {
     this.weaponSystem  = null
     this.foodSystem    = null
     this.biomeSystem   = null
+    this.hazardSystem  = null
   }
 
   init(data) {
@@ -153,6 +155,9 @@ export default class WorldScene extends Phaser.Scene {
     // ── 群系系统：把 BiomeContentMap / MonsterStats 真正跑起来 ──────────────
     this.biomeSystem = new BiomeSystem(this.worldGen, this.dayNightSystem)
     this.monsterSystem.biomeSystem = this.biomeSystem
+
+    // M15: 危害系统（流沙 / 龙卷风 / 漩涡拉拽）
+    this.hazardSystem = new HazardSystem(this)
 
     // 初始怪物生成
     for (let i = 0; i < 3; i++) {
@@ -539,6 +544,20 @@ export default class WorldScene extends Phaser.Scene {
       this.weatherSystem.update(dt, biome)
     }
 
+    // ── M15: 危害系统（流沙/龙卷/漩涡）────────────────────────────────────
+    if (this.hazardSystem && this.worldGen) {
+      const curBiome = this.worldGen.getBiome(this.playerTile.x, this.playerTile.y) ?? 0
+      this.hazardSystem.update(dt, curBiome)
+      // 处理龙卷/漩涡的 tile 强制位移
+      const drift = this.hazardSystem.tryDriftPlayer()
+      if (drift) {
+        const nx = Phaser.Math.Clamp(this.playerTile.x + drift.dx, 0, 2849)
+        const ny = Phaser.Math.Clamp(this.playerTile.y + drift.dy, 0, 2849)
+        this.playerTile = { x: nx, y: ny }
+        this.hazardSystem._clearDrift()
+      }
+    }
+
     // ── 怪物 AI 更新 ──────────────────────────────────────────────────────
     if (this.monsterSystem && this.worldGen) {
       const { sx: psx, sy: psy } = this.tileToScreen(
@@ -556,7 +575,8 @@ export default class WorldScene extends Phaser.Scene {
 
     const speedMul = this.foodSystem?.speedMul ?? 1.0
     const heroSpdMul = this.combatSystem?.skillSystem?.moveSpeedMul ?? 1.0
-    const moveDelay = Math.round(160 / (speedMul * heroSpdMul))
+    const hazardMul  = this.hazardSystem?.getMoveSpeedMul() ?? 1.0
+    const moveDelay = Math.round(160 / (speedMul * heroSpdMul * hazardMul))
     if (time - this.moveTimer < moveDelay) return
 
     const { x, y } = this.playerTile
