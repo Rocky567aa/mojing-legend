@@ -24,6 +24,7 @@ import {
   getMonsterStatsAtLevel,
 } from '../data/MonsterStats.js'
 import { BIOME_NAMES } from '../utils/WorldGen.js'
+import { getBiomeContent } from '../data/BiomeContentMap.js'
 
 // ── 群系危害标记（接 Quicksand / Tornado 设计） ──────────────────────────────
 // hazard: 'quicksand' | 'tornado' | 'pull' | null
@@ -101,6 +102,63 @@ export function getMonsterRender(monsterId) {
   }
 }
 
+// ── M19：BiomeContentMap 生物（拟态怪 + Boss）渲染接入 ───────────────────────
+//
+// BiomeContentMap 的 disguisedMonsters / bosses 是完整数值对象，但没有形状字段。
+// 用中文名称关键字推断 MonsterSystem._drawShape 支持的几何体，让 147 个生物
+// 都能被实时画出来。优先级从具体到泛化。
+
+const SHAPE_KEYWORDS = [
+  [/巨龙|古龙|海龙|幼龙|龙|蜥/,                        'lizard'],
+  [/九头|克拉肯|水蛭|蛭|水蛇|海蛇|蛇/,                'snake'],
+  [/狼|豹/,                                            'wolf'],
+  [/熊|野猪|巨兽|猛兽|犀|象/,                          'bear'],
+  [/苍鹰|雄鹰|鹰|苍|隼|雕|飞鸟|鸟/,                    'bird'],
+  [/蝙蝠|蝠/,                                          'bat'],
+  [/巫妖|死灵|亡灵|骸|骨堆|骨|尸|墓|僵|看守者|领主.*亡|死亡(领主|骑士|百合)/, 'undead'],
+  [/幽灵|鬼|魂|女巫|巫后|怨|幻影|裂缝恐怖/,            'ghost'],
+  [/神·|·诺法尔|·阿图姆|·波塞冬|·托恩|·科里|·齐普斯|·奥苏曼|星辰守护|天星神|守护者长|圣|化身|天使/, 'angel'],
+  [/泰坦|巨人|傀儡|石魔|石像|守护石|岩石|矿道|钟乳|雪人|守卫|傀|巨虫/, 'golem'],
+  [/暗魔|魔法师|大法师|恶魔|哥布林|暗精灵|暗影|领主|妖/, 'demon'],
+  [/精灵|元素|史莱姆|嫩芽|嫩苗|嫩|精|虫|玫瑰|百合|仙人掌|灌木|根|芦苇|水藻|海藻|荆棘|蛛|蟾|苗/, 'sprite'],
+]
+
+/** 按中文名推断渲染形状 */
+export function inferShape(name) {
+  for (const [re, shape] of SHAPE_KEYWORDS) {
+    if (re.test(name)) return shape
+  }
+  return 'sprite'
+}
+
+/** BiomeContentMap 元素 → 群系级 element（用于配色） */
+function biomeElement(biomeId) {
+  return getBiomeContent(biomeId)?.element ?? 'physical'
+}
+
+/** 给一个 BiomeContentMap 生物对象生成渲染描述 */
+function creatureRender(creature, biomeId) {
+  // 名字含元素暗示则覆盖，否则用群系元素
+  const name = creature.name ?? ''
+  let elemKey = biomeElement(biomeId)
+  if (/火|熔岩|余烬|炎/.test(name)) elemKey = 'fire'
+  else if (/冰|霜|雪|极光|寒/.test(name)) elemKey = 'ice'
+  else if (/雷|电|风暴|飓风|闪/.test(name)) elemKey = 'lightning'
+  else if (/毒|沼泽|腐|瘟疫/.test(name)) elemKey = 'poison'
+  else if (/暗|虚空|死|幽|亡/.test(name)) elemKey = 'dark'
+  else if (/圣|星|神|光|天使/.test(name)) elemKey = 'holy'
+  else if (/海|水|漩涡|深渊|浪/.test(name)) elemKey = 'water'
+  const elem = ELEMENT_COLORS[elemKey] ?? ELEMENT_COLORS.physical
+  return { shape: inferShape(name), color: elem.color, glowColor: elem.glow }
+}
+
+/** Boss tier → 视觉/行为参数 */
+const BOSS_TIER_META = {
+  field: { sizeScale: 1.7, minLevel: 1,  prefix: '【BOSS】' },
+  area:  { sizeScale: 2.1, minLevel: 8,  prefix: '【区域BOSS】' },
+  zone:  { sizeScale: 2.6, minLevel: 18, prefix: '【领主BOSS】' },
+}
+
 // ── 难度缩放总监（M8） ───────────────────────────────────────────────────────
 
 /** 屏上怪物上限：随玩家等级递增 */
@@ -157,11 +215,100 @@ export class BiomeSystem {
 
   /**
    * 抽取一只怪物的完整生成描述。
+   * M19：三类来源 — Boss（领域/区域/领主）/ 拟态怪 / 普通小怪。
    * @param {number} biomeId
    * @param {number} playerLevel
    * @returns {SpawnDesc|null}
    */
   rollSpawn(biomeId, playerLevel) {
+    const content = getBiomeContent(biomeId)
+
+    // ── 1) Boss 抽取（按等级门槛 + 概率）──────────────────────────────────
+    if (content?.bosses?.length) {
+      const bossChance = Math.max(getBossChance(playerLevel), playerLevel >= 10 ? 0.015 : 0)
+      if (bossChance > 0 && Math.random() < bossChance) {
+        const desc = this._rollBoss(content.bosses, biomeId, playerLevel)
+        if (desc) return desc
+      }
+    }
+
+    // ── 2) 拟态怪抽取（~16%）─────────────────────────────────────────────
+    if (content?.disguisedMonsters?.length && Math.random() < 0.16) {
+      const desc = this._rollDisguised(content.disguisedMonsters, biomeId, playerLevel)
+      if (desc) return desc
+    }
+
+    // ── 3) 普通小怪（沿用 MonsterStats / BIOME_MONSTER_POOL）─────────────
+    return this._rollSmall(biomeId, playerLevel)
+  }
+
+  /** M19：从 BiomeContentMap bosses 构建 Boss spawn 描述 */
+  _rollBoss(bosses, biomeId, playerLevel) {
+    // 仅取等级允许的 tier，越高 tier 越稀有
+    const eligible = bosses.filter(b => {
+      const meta = BOSS_TIER_META[b.tier] ?? BOSS_TIER_META.field
+      return playerLevel >= meta.minLevel
+    })
+    if (eligible.length === 0) return null
+    // 加权：field 多、zone 少
+    const tierWeight = { field: 0.6, area: 0.3, zone: 0.1 }
+    const weighted = []
+    for (const b of eligible) weighted.push(...Array(Math.round((tierWeight[b.tier] ?? 0.3) * 10)).fill(b))
+    const boss = weighted[Math.floor(Math.random() * weighted.length)] ?? eligible[0]
+    const meta = BOSS_TIER_META[boss.tier] ?? BOSS_TIER_META.field
+
+    const lvMul = 1 + (playerLevel - 1) * 0.05
+    return {
+      id: boss.id,
+      name: meta.prefix + boss.name,
+      isElite: false,
+      isBoss: true,
+      stats: {
+        hp:      Math.round(boss.hp * lvMul),
+        physAtk: Math.round((boss.physAtk ?? 0) * lvMul),
+        magAtk:  Math.round((boss.magAtk ?? 0) * lvMul),
+        physDef: boss.physDef ?? 0,
+        magDef:  boss.magDef ?? 0,
+        xp:      Math.round((boss.xp ?? 100) * lvMul),
+        dropRate: boss.dropRate ?? 0.6,
+        lootTable: boss.lootTable ?? ['ore_rare'],
+      },
+      render: creatureRender(boss, biomeId),
+      sizeScale: meta.sizeScale,
+      element: biomeElement(biomeId),
+      skills: boss.skills ?? [],
+    }
+  }
+
+  /** M19：从 BiomeContentMap disguisedMonsters 构建拟态怪 spawn 描述 */
+  _rollDisguised(disguised, biomeId, playerLevel) {
+    const c = disguised[Math.floor(Math.random() * disguised.length)]
+    if (!c) return null
+    const lvMul = 1 + (playerLevel - 1) * 0.05
+    return {
+      id: c.id,
+      name: '拟态·' + c.name,
+      isElite: true,        // 拟态怪视作精英级（值得打）
+      isBoss: false,
+      stats: {
+        hp:      Math.round(c.hp * lvMul),
+        physAtk: Math.round((c.physAtk ?? 0) * lvMul),
+        magAtk:  Math.round((c.magAtk ?? 0) * lvMul),
+        physDef: c.physDef ?? 0,
+        magDef:  c.magDef ?? 0,
+        xp:      Math.round((c.xp ?? 30) * lvMul),
+        dropRate: c.dropRate ?? 0.28,
+        lootTable: ['ore_common'],
+      },
+      render: creatureRender(c, biomeId),
+      sizeScale: 1.25,
+      element: biomeElement(biomeId),
+      special: c.special ?? null,
+    }
+  }
+
+  /** 普通小怪：原 M13 路径 */
+  _rollSmall(biomeId, playerLevel) {
     const pool = BIOME_MONSTER_POOL[biomeId]
     if (!pool || pool.length === 0) return null
 
@@ -173,7 +320,6 @@ export class BiomeSystem {
     let isBoss  = false
     let isElite = false
     if (base.isBoss) {
-      // Boss 模板：按 Boss 概率决定本次是否真的刷新为 Boss，否则降级精英
       isBoss = Math.random() < Math.max(getBossChance(playerLevel), 0.02)
       isElite = !isBoss
     } else {
@@ -188,7 +334,6 @@ export class BiomeSystem {
     if (!stats) return null
 
     const render = getMonsterRender(id)
-    // 精英/Boss 视觉放大 + 名字前缀
     const sizeScale = isBoss ? 1.8 : isElite ? 1.3 : 1.0
     const namePrefix = isBoss ? '【BOSS】' : isElite ? '★精英 ' : ''
 
