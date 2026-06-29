@@ -27,6 +27,7 @@ import { BiomeSystem } from '../systems/BiomeSystem.js'
 import { HazardSystem } from '../systems/HazardSystem.js'
 import { DayNightSystem } from '../systems/DayNightSystem.js'
 import { WeatherSystem } from '../systems/WeatherSystem.js'
+import { getSound } from '../systems/SoundSystem.js'
 import { BIOME_ID_TO_TILE_KEY } from '../utils/BiomeTileMap.js'
 
 const TILE_W = 64        // 等距瓦片宽
@@ -112,6 +113,17 @@ export default class WorldScene extends Phaser.Scene {
       this.combatSystem?.castSkill()
     })
 
+    // M18: 音效系统 — AudioContext 需用户手势激活
+    this.sfx = getSound()
+    const _activateAudio = () => { this.sfx.ensure(); this.sfx.setBiome(this._currentBiomeId ?? 0) }
+    this.input.keyboard.once('keydown', _activateAudio)
+    this.input.once('pointerdown', _activateAudio)
+    // M 键静音切换
+    this.input.keyboard.on('keydown-M', () => {
+      const muted = this.sfx.toggleMute()
+      if (this.muteHint) this.muteHint.setText(muted ? '🔇 静音 (M)' : '🔊 音效 (M)')
+    })
+
     // 点击挖矿
     this.input.on('pointerdown', ptr => this.handleClick(ptr))
 
@@ -143,6 +155,12 @@ export default class WorldScene extends Phaser.Scene {
     })
     baseBtn.on('pointerover', () => baseBtn.setStyle({ color: '#ffffff' }))
     baseBtn.on('pointerout',  () => baseBtn.setStyle({ color: '#ffe0aa' }))
+
+    // M18: 静音状态提示
+    this.muteHint = this.add.text(14, height - 14, '🔊 音效 (M)', {
+      fontSize: '11px', color: '#88aacc',
+      backgroundColor: '#00000077', padding: { x: 7, y: 4 }
+    }).setOrigin(0, 1).setDepth(200).setScrollFactor(0)
 
     this.combatSystem.buildUI(width, height)
     this.weaponSystem.buildUI(width, height)
@@ -542,6 +560,11 @@ export default class WorldScene extends Phaser.Scene {
     if (this.weatherSystem) {
       const biome = this.worldGen?.getBiome(this.playerTile.x, this.playerTile.y) ?? 0
       this.weatherSystem.update(dt, biome)
+      // M18: 群系切换时换 BGM
+      if (biome !== this._currentBiomeId) {
+        this._currentBiomeId = biome
+        if (this.sfx?.started) this.sfx.setBiome(biome)
+      }
     }
 
     // ── M15: 危害系统（流沙/龙卷/漩涡）────────────────────────────────────
@@ -698,6 +721,9 @@ export default class WorldScene extends Phaser.Scene {
     if (_inv.fuel      == null) _inv.fuel      = 3
     _inv.ores[info.drops] = (_inv.ores[info.drops] || 0) + 1
     localStorage.setItem('mojing_save', JSON.stringify(save))
+
+    // M18: 挖矿音效
+    this.sfx?.mine()
 
     // ── 拾取通知（中文名称 + 等级卡片）──────────────────────────
     this.pickupNotif.show(info.drops, 1)
