@@ -415,10 +415,61 @@ export class MonsterSystem {
     for (let i = this.monsters.length - 1; i >= 0; i--) {
       const m = this.monsters[i]
       if (!m.gfx?.active) { this.monsters.splice(i, 1); continue }
+      this._tickStatus(m, delta)
+      if (m._freeze > 0) {            // 冰冻：跳过 AI（仍可被攻击）
+        if (m.gfx) { m.gfx.x = m.sx; m.gfx.y = m.sy }
+        continue
+      }
       const r = this._updateAI(m, dt, playerSX, playerSY)
       if (r) attacks.push(r)
     }
     return attacks
+  }
+
+  /**
+   * M14：施加状态效果（技能/被动调用）。
+   * @param {object} m   怪物
+   * @param {'burn'|'freeze'|'slow'} kind
+   * @param {number} dps  每秒伤害（burn 用）
+   * @param {number} durSec 持续秒数
+   */
+  applyStatus(m, kind, dps = 0, durSec = 3) {
+    if (!m || m.state === 'dead') return
+    if (kind === 'burn')   { m._burn = durSec * 1000; m._burnDps = dps }
+    if (kind === 'freeze') { m._freeze = durSec * 1000 }
+    if (kind === 'slow')   { m._slow = durSec * 1000 }
+  }
+
+  /** 每帧处理怪物身上的状态效果 */
+  _tickStatus(m, delta) {
+    if (m._freeze > 0) {
+      m._freeze -= delta
+      if (m.gfx) m.gfx.setAlpha(0.6)
+    }
+    if (m._slow > 0) m._slow -= delta
+    if (m._burn > 0) {
+      m._burn -= delta
+      m._burnTick = (m._burnTick ?? 0) + delta
+      if (m._burnTick >= 500) {            // 每 0.5s 跳一次燃烧
+        m._burnTick = 0
+        const d = Math.round(m._burnDps * 0.5)
+        if (d > 0) {
+          m.hp -= d; this._updateBar(m)
+          this._showBurnTick(m, d)
+          if (m.hp <= 0) { this._kill(m); return }
+        }
+      }
+    }
+    // 状态全清时恢复透明度
+    if (m._freeze <= 0 && m.gfx && m.gfx.alpha < 1) m.gfx.setAlpha(1)
+  }
+
+  _showBurnTick(m, d) {
+    const t = this.scene.add.text(m.sx, m.sy - 18, `🔥${d}`, {
+      fontSize: '10px', color: '#ff7733', stroke: '#000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(1400)
+    this.wc.add(t)
+    this.scene.tweens.add({ targets: t, y: '-=12', alpha: 0, duration: 700, onComplete: () => t.destroy() })
   }
 
   _updateAI(m, dt, psx, psy) {
@@ -426,6 +477,7 @@ export class MonsterSystem {
     const dx = psx - m.sx, dy = psy - m.sy
     const dist = Math.sqrt(dx*dx + dy*dy)
     const { type } = m
+    const spd = (m._slow > 0 ? 0.4 : 1) * type.speed   // M14 减速
 
     if (dist < type.attackRange) m.state = 'attack'
     else if (dist < type.aggroRange) m.state = 'chase'
@@ -437,14 +489,14 @@ export class MonsterSystem {
         m.wTimer -= dt
         if (m.wTimer <= 0) {
           const a = Math.random() * Math.PI * 2
-          m.wdx = Math.cos(a) * type.speed * 0.45
-          m.wdy = Math.sin(a) * type.speed * 0.45
+          m.wdx = Math.cos(a) * spd * 0.45
+          m.wdy = Math.sin(a) * spd * 0.45
           m.wTimer = 2 + Math.random() * 3
         }
         m.sx += m.wdx * dt; m.sy += m.wdy * dt
         break
       case 'chase':
-        if (dist > 0) { m.sx += (dx/dist)*type.speed*dt; m.sy += (dy/dist)*type.speed*dt }
+        if (dist > 0) { m.sx += (dx/dist)*spd*dt; m.sy += (dy/dist)*spd*dt }
         break
       case 'attack':
         m.atkTimer -= dt * 1000
