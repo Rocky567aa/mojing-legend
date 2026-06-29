@@ -183,8 +183,11 @@ export class CombatSystem {
   // ── Monster → Player ─────────────────────────────────────────────────────
   takeDamage(dmg) {
     if (this.dead) return
-    // Kane damage reduction
-    const reduced = this._heroId === 'kane' ? Math.round(dmg * 0.8) : dmg
+    // kane innate damage reduction
+    let reduced = this._heroId === 'kane' ? Math.round(dmg * 0.8) : dmg
+    // physDef multiplier from FoodSystem (def_up buff)
+    const physDefMul = this.scene.foodSystem?.physDefMul ?? 1.0
+    reduced = Math.round(reduced / physDefMul)
     this.hp = Math.max(0, this.hp - reduced)
     this.refreshUI()
 
