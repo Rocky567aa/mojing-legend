@@ -81,7 +81,7 @@ export default class WorldScene extends Phaser.Scene {
     // WeaponSystem — 依赖 CombatSystem，需在 combat.init() 后构建
     this.weaponSystem = new WeaponSystem(this, this.combatSystem)
     this.combatSystem.weaponSystem = this.weaponSystem
-    this.weaponSystem.initHeroWeapon(this.saveData?.profession ?? 'kain')
+    this.weaponSystem.initHeroWeapon(this.saveData?.profession ?? 'kane')
 
     // 加载初始区块
     this.loadVisibleChunks()
