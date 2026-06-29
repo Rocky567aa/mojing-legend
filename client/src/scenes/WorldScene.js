@@ -23,6 +23,7 @@ import { MonsterSystem } from '../entities/MonsterSystem.js'
 import { CombatSystem } from '../systems/CombatSystem.js'
 import { WeaponSystem } from '../systems/WeaponSystem.js'
 import { FoodSystem } from '../systems/FoodSystem.js'
+import { BiomeSystem } from '../systems/BiomeSystem.js'
 import { DayNightSystem } from '../systems/DayNightSystem.js'
 import { WeatherSystem } from '../systems/WeatherSystem.js'
 import { BIOME_ID_TO_TILE_KEY } from '../utils/BiomeTileMap.js'
@@ -53,6 +54,7 @@ export default class WorldScene extends Phaser.Scene {
     this.combatSystem  = null
     this.weaponSystem  = null
     this.foodSystem    = null
+    this.biomeSystem   = null
   }
 
   init(data) {
@@ -142,6 +144,10 @@ export default class WorldScene extends Phaser.Scene {
     // ── 昼夜循环 + 天气系统 ────────────────────────────────────────────────
     this.dayNightSystem = new DayNightSystem(this, { startTime: 0.33 /* 从早晨开始 */ })
     this.weatherSystem  = new WeatherSystem(this)
+
+    // ── 群系系统：把 BiomeContentMap / MonsterStats 真正跑起来 ──────────────
+    this.biomeSystem = new BiomeSystem(this.worldGen, this.dayNightSystem)
+    this.monsterSystem.biomeSystem = this.biomeSystem
 
     // 初始怪物生成
     for (let i = 0; i < 3; i++) {
@@ -590,8 +596,18 @@ export default class WorldScene extends Phaser.Scene {
     )
 
     this.hintText.setText(`${prof}  |  WASD 移动  |  点击矿石挖矿`)
+
+    // 群系危害 + 夜间密度提示
+    let extra = ''
+    if (this.biomeSystem) {
+      const hz = this.biomeSystem.getHazard(biome)
+      const hazardLabel = { quicksand: '⚠️ 流沙', tornado: '🌪️ 龙卷', pull: '🌀 拉拽' }[hz]
+      if (hazardLabel) extra += `\n${hazardLabel}危险区`
+      if (this.biomeSystem.isNight()) extra += `\n🌙 夜间·怪物密度↑`
+    }
+
     this.coordText.setText(
-      `${biomeName}\n坐标 (${x}, ${y})\n距出生点 ${dist >= 1000 ? (dist/1000).toFixed(1)+'km' : dist+'m'}\n种子 #${this.worldGen.seed}`
+      `${biomeName}\n坐标 (${x}, ${y})\n距出生点 ${dist >= 1000 ? (dist/1000).toFixed(1)+'km' : dist+'m'}\n种子 #${this.worldGen.seed}${extra}`
     )
   }
 
