@@ -5,6 +5,36 @@
  */
 import { BIOME } from '../utils/WorldGen.js'
 
+/**
+ * M22: 从技能名称字符串推断战斗效果列表。
+ * 返回 [{ type, ... }] 便于 WorldScene 分发给 CombatSystem。
+ */
+function parseSkillEffects(skillName, baseAtk) {
+  const effects = []
+  const s = skillName ?? ''
+  const durMatch = s.match(/(\d+(?:\.\d+)?)s/)
+  const durSec = durMatch ? parseFloat(durMatch[1]) : null
+
+  if (/毒|孢子|中毒/.test(s))
+    effects.push({ type: 'poison', dps: Math.max(4, Math.round(baseAtk * 0.25)), dur: durSec ?? 5 })
+  if (/眩晕|晕眩|击晕|眩|昏迷/.test(s))
+    effects.push({ type: 'stun', dur: durSec ?? 1.5 })
+  if (/出血|流血|撕裂|钳夹/.test(s))
+    effects.push({ type: 'bleed', dps: Math.max(3, Math.round(baseAtk * 0.15)), dur: durSec ?? 3 })
+  if (/缚|禁锢|束缚|吞噬|根须|slow/.test(s))
+    effects.push({ type: 'slow', dur: durSec ?? 2 })
+  if (/范围|震|踏|地裂|冲撞|冲击|爆炸|横冲|山崩/.test(s))
+    effects.push({ type: 'aoe', dmgMul: 1.6 })
+  if (/暴击|突袭|猛扑|出其不意/.test(s))
+    effects.push({ type: 'crit', mul: 1.8 })
+  if (/召唤|召唤蚁兵|藤蔓/.test(s))
+    effects.push({ type: 'summon' })
+
+  // 无匹配 → 普通伤害突刺（让 Boss 技能至少有用）
+  if (effects.length === 0) effects.push({ type: 'aoe', dmgMul: 1.2 })
+  return effects
+}
+
 const M = (id, name, shape, color, glow, hp, atk, spd, aggro, atkR, cd, density, xp, drops) =>
   ({ id, name, shape, color, glowColor: glow, hp, atk, speed: spd, aggroRange: aggro,
      attackRange: atkR, attackCooldown: cd, density, xp, drops })
@@ -254,6 +284,9 @@ export class MonsterSystem {
     const atk = (stats.physAtk ?? 0) + (stats.magAtk ?? 0)
     // 速度：Boss 慢、精英略快、普通中等
     const speed = isBoss ? 38 : isElite ? 62 : 52
+    // M22: 技能 / 拟态特效
+    const skills  = desc.skills ?? []
+    const special = desc.special ?? null      // 拟态怪专属特效字符串
 
     // lootTable(string[]) → drops 对象
     const drops = (stats.lootTable ?? []).map(item => ({
@@ -280,6 +313,9 @@ export class MonsterSystem {
       drops,
       isElite,
       isBoss,
+      skills,
+      special,
+      skillCd: isBoss ? (3500 + Math.random() * 3500) : 99999,
     }
     this._spawn(type, sx, sy, undefined, sizeScale)
   }
@@ -296,6 +332,8 @@ export class MonsterSystem {
       isBoss: !!type.isBoss,
       id: ++MonsterSystem._uid,
       gfx: null, hpBg: null, hpFill: null, label: null,
+      _skillTimer: type.skillCd ?? 99999,   // M22 Boss 技能计时
+      _specialUsed: false,                  // M22 拟态怪首次特效标记
     }
     this._buildGfx(m)
     this.monsters.push(m)
@@ -472,6 +510,21 @@ export class MonsterSystem {
     this.scene.tweens.add({ targets: t, y: '-=12', alpha: 0, duration: 700, onComplete: () => t.destroy() })
   }
 
+  /** M22: Boss 技能名漂浮提示 */
+  _showSkillName(m, skill) {
+    const s = this.scene
+    const t = s.add.text(m.sx, m.sy - 38, `✦ ${skill}`, {
+      fontSize: '12px', color: '#ff88ff', fontStyle: 'bold',
+      stroke: '#220033', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(1450)
+    this.wc.add(t)
+    s.tweens.add({ targets: t, y: m.sy - 68, alpha: 0, duration: 1400, ease: 'Power1', onComplete: () => t.destroy() })
+    // 红色光环闪烁
+    if (m.gfx) {
+      s.tweens.add({ targets: m.gfx, scaleX: 1.25, scaleY: 1.25, duration: 200, yoyo: true, repeat: 2 })
+    }
+  }
+
   _updateAI(m, dt, psx, psy) {
     if (m.state === 'dead') return null
     const dx = psx - m.sx, dy = psy - m.sy
@@ -502,7 +555,31 @@ export class MonsterSystem {
         m.atkTimer -= dt * 1000
         if (m.atkTimer <= 0) {
           m.atkTimer = type.attackCooldown
-          attacked = { monster: m, atk: type.atk }
+
+          // ── M22: 拟态怪首次触发特效 ────────────────────────────────
+          const effects = []
+          if (!m._specialUsed && type.special) {
+            m._specialUsed = true
+            effects.push(...parseSkillEffects(type.special, type.atk))
+          }
+          attacked = { monster: m, atk: type.atk, effects }
+        }
+
+        // ── M22: Boss 技能冷却触发 ──────────────────────────────────
+        if (type.isBoss && type.skills?.length > 0) {
+          m._skillTimer -= dt * 1000
+          if (m._skillTimer <= 0) {
+            m._skillTimer = type.skillCd
+            const skill = type.skills[Math.floor(Math.random() * type.skills.length)]
+            const skillEffects = parseSkillEffects(skill, type.atk)
+            // Boss 技能强制触发（独立于普通攻击）
+            this._showSkillName(m, skill)
+            if (attacked) {
+              attacked.effects.push(...skillEffects)
+            } else {
+              attacked = { monster: m, atk: type.atk * 1.2, effects: skillEffects }
+            }
+          }
         }
         break
     }
