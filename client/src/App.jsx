@@ -12,6 +12,9 @@ const GAME_CONFIG = {
   height: window.innerHeight,
   backgroundColor: '#0a0a1a',
   scene: [BootScene, ProfessionSelectScene, WorldScene, BaseScene],
+  dom: {
+    createContainer: true
+  },
   physics: {
     default: 'arcade',
     arcade: { gravity: { y: 0 }, debug: false }
