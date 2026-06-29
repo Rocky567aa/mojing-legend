@@ -244,6 +244,7 @@ export class FoodSystem {
     item.glow?.destroy()
     item.iconTxt?.destroy()
     item.nameTxt?.destroy()
+    this.scene.sfx?.harvest()
 
     const d = item.data
 
