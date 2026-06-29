@@ -29,6 +29,7 @@ import { DayNightSystem } from '../systems/DayNightSystem.js'
 import { WeatherSystem } from '../systems/WeatherSystem.js'
 import { getSound } from '../systems/SoundSystem.js'
 import { SaveSystem } from '../systems/SaveSystem.js'
+import { MinimapSystem } from '../systems/MinimapSystem.js'
 import { BIOME_ID_TO_TILE_KEY } from '../utils/BiomeTileMap.js'
 
 const TILE_W = 64        // 等距瓦片宽
@@ -198,10 +199,18 @@ export default class WorldScene extends Phaser.Scene {
 
     this.updateUI()
 
+    // M21: 小地图
+    this.minimap = new MinimapSystem(this)
+
     // M20: 自动存档（每 30 秒）+ 离开场景时存档
     SaveSystem.startAutoSave(this, 30000)
     if (this.saveData?.settings?.muted && this.sfx) { this.sfx.muted = true }
     this.events.once('shutdown', () => { SaveSystem.save(this) })
+
+    // M21: 首次游玩新手引导
+    if (!this.saveData?.tutorialSeen) {
+      this._showTutorial()
+    }
 
     // 淡入
     this.cameras.main.fadeIn(500, 0, 0, 0)
@@ -536,6 +545,47 @@ export default class WorldScene extends Phaser.Scene {
     return g
   }
 
+  // M21: 新手引导覆盖层（首次游玩）
+  _showTutorial() {
+    const { width: W, height: H } = this.scale
+    const layer = this.add.container(0, 0).setDepth(500).setScrollFactor(0)
+    const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.78).setScrollFactor(0)
+    const panel = this.add.rectangle(W / 2, H / 2, Math.min(520, W - 40), 360, 0x140d28, 0.98)
+      .setStrokeStyle(2, 0x9966cc).setScrollFactor(0)
+    const title = this.add.text(W / 2, H / 2 - 150, '⚔ 欢迎来到魔晶传说', {
+      fontSize: '24px', color: '#cc99ff', fontStyle: 'bold',
+    }).setOrigin(0.5).setScrollFactor(0)
+
+    const lines = [
+      '🎮  WASD / 方向键   移动角色',
+      '⛏  鼠标点击地块    挖矿采集资源',
+      '⚔  靠近怪物         自动攻击',
+      '✨  空格 SPACE       释放英雄技能',
+      '🌿  踩到掉落物       自动拾取食物/药草',
+      '🏠  右下角按钮       进入基地炼制魔晶',
+      '🗺  右上角小地图     查看周围地形',
+      '🔊  M 键             开关音效',
+      '💾  自动存档         每 30 秒 + 进基地时',
+    ]
+    const body = this.add.text(W / 2, H / 2 - 110, lines.join('\n'), {
+      fontSize: '15px', color: '#ddddee', lineSpacing: 8, align: 'left',
+    }).setOrigin(0.5, 0).setScrollFactor(0)
+
+    const btn = this.add.text(W / 2, H / 2 + 145, '▶  开始冒险', {
+      fontSize: '18px', color: '#ffffff', fontStyle: 'bold',
+      backgroundColor: '#5522aa', padding: { x: 28, y: 10 },
+    }).setOrigin(0.5).setScrollFactor(0).setInteractive({ useHandCursor: true })
+    btn.on('pointerover', () => btn.setScale(1.05))
+    btn.on('pointerout', () => btn.setScale(1.0))
+    btn.on('pointerdown', () => {
+      this.sfx?.ensure()
+      if (this.saveData) { this.saveData.tutorialSeen = true; SaveSystem.save(this) }
+      this.tweens.add({ targets: layer, alpha: 0, duration: 250, onComplete: () => layer.destroy(true) })
+    })
+
+    layer.add([dim, panel, title, body, btn])
+  }
+
   updateCameraOffset() {
     const { width, height } = this.scale
     const { sx, sy } = this.tileToScreen(
@@ -573,6 +623,7 @@ export default class WorldScene extends Phaser.Scene {
 
     // ── 昼夜 + 天气 ────────────────────────────────────────────────────────
     if (this.dayNightSystem) this.dayNightSystem.update(dt)
+    if (this.minimap) this.minimap.update(dt)
     if (this.weatherSystem) {
       const biome = this.worldGen?.getBiome(this.playerTile.x, this.playerTile.y) ?? 0
       this.weatherSystem.update(dt, biome)
