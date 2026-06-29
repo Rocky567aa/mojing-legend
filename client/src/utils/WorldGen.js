@@ -598,7 +598,6 @@ export const TILE_COLORS = {
   [TILE.CRACKED_GROUND]:  { top: 0x2a2010, left: 0x180c08, right: 0x3a2a18 },
   [TILE.SNOW_PATCH]:      { top: 0xddddee, left: 0xaaaacc, right: 0xeeeeff },
   [TILE.DARK_SLIME]:      { top: 0x0a1a10, left: 0x050c08, right: 0x102218 },
-}
 
   // New tiles
   [TILE.SWAMP_MUD]:      { top: 0x2d4a1a, left: 0x1a2a0a, right: 0x3d5a2a },
