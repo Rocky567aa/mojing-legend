@@ -1,8 +1,14 @@
 /**
- * CombatSystem — 战斗管理
+ * CombatSystem — 战斗管理 (M11)
  * 职责：玩家属性、攻击计算、受伤处理、HP 显示、浮动数字
+ *
+ * M11 新增：
+ *   - HeroMedicine 接入 → 英雄专属回血倍率 / 毒素抗性 / 炼金加成
+ *   - 全 16 英雄 stats 统一走 HERO_DATA（已包含扩展英雄）
+ *   - applyFood(item) / applyPoison(src, power) / alchemyBonus() 公开 API
  */
 import { HERO_DATA } from '../data/HeroData.js'
+import { HERO_MEDICINE } from '../data/HeroMedicine.js'
 
 export class CombatSystem {
   constructor(scene) {
@@ -24,6 +30,11 @@ export class CombatSystem {
     this._heroId = null
     // Weapon system reference (set externally after construction)
     this.weaponSystem = null
+    // Medicine attributes (from HeroMedicine.js)
+    this._med = null        // HERO_MEDICINE[heroId]
+    // Active poison/debuff state
+    this._poisonTimer = 0
+    this._poisonDps   = 0   // raw dps before resist
   }
 
   init(professionId) {
@@ -42,6 +53,10 @@ export class CombatSystem {
     this.dead  = false
     this.xp = 0; this.level = 1
     this._xpToNext = 30
+    // Load medicine attributes
+    this._med = HERO_MEDICINE[hero.id] ?? HERO_MEDICINE['kane']
+    this._poisonTimer = 0
+    this._poisonDps   = 0
   }
 
   buildUI(width, height) {
@@ -245,13 +260,128 @@ export class CombatSystem {
 
   // ── Regen (Lena passive) ─────────────────────────────────────────────────
   update(delta) {
-    if (this._heroId !== 'lena' || this.dead) return
-    this._regenTimer += delta
-    if (this._regenTimer >= 10000) {
-      this._regenTimer = 0
-      this.hp = Math.min(this.maxHp, this.hp + 15)
-      this.refreshUI()
+    if (this.dead) return
+    // 莉娜：每10s回复15HP
+    if (this._heroId === 'lena') {
+      this._regenTimer += delta
+      if (this._regenTimer >= 10000) {
+        this._regenTimer = 0
+        this.hp = Math.min(this.maxHp, this.hp + 15)
+        this.refreshUI()
+      }
     }
+    // 中毒 tick（来自有毒蘑菇 / 植物 / 怪物攻击）
+    if (this._poisonTimer > 0) {
+      this._poisonTimer -= delta
+      const resist = this._med?.poisonResist ?? 0.30
+      const dps    = this._poisonDps * (1 - resist)
+      const dmg    = Math.round(dps * delta / 1000)
+      if (dmg > 0) {
+        this.hp = Math.max(1, this.hp - dmg)
+        this.refreshUI()
+        // 显示绿色毒伤数字（小号）
+        const s = this.scene
+        const { width, height } = s.scale
+        const txt = s.add.text(width / 2 + 20, height / 2 - 30, `☠ -${dmg}`, {
+          fontSize: '10px', color: '#44ff88',
+          stroke: '#000000', strokeThickness: 2,
+        }).setOrigin(0.5).setDepth(498).setScrollFactor(0)
+        s.tweens.add({ targets: txt, y: '-=14', alpha: 0, duration: 900,
+          onComplete: () => txt.destroy() })
+      }
+      if (this._poisonTimer <= 0) {
+        this._poisonDps = 0
+        this._showStatusEnd('中毒', '#44ff88')
+      }
+    }
+  }
+
+  // ── Medicine / Food API ───────────────────────────────────────────────────
+
+  /**
+   * 玩家食用食物或药水时调用。
+   * @param {{ healPct: number, poisonDps?: number, poisonDur?: number }} item
+   */
+  applyFood(item) {
+    if (this.dead) return
+    const m = this._med ?? {}
+
+    if (item.healPct > 0) {
+      const mul   = m.potionHeal ?? 1.0
+      const healed = Math.round(this.maxHp * item.healPct * mul)
+      this.hp = Math.min(this.maxHp, this.hp + healed)
+      this.refreshUI()
+      this._showHeal(healed)
+    }
+
+    if (item.poisonDps > 0) {
+      // 中毒：有中毒攻击（毒素植物/毒蘑菇）时用该 hero 的 poisonResist
+      const resist = m.poisonResist ?? 0.30
+      const dur    = (item.poisonDur ?? 5) * 1000
+      this._poisonDps   = item.poisonDps
+      this._poisonTimer = dur
+      this._showStatusStart(`☠ 中毒 (${item.poisonDur ?? 5}s)`, '#44ff88')
+    }
+  }
+
+  /**
+   * 怪物/环境造成中毒时调用（流沙、毒雾等）
+   * @param {number} dps   每秒毒伤（原始值，抗性在 update 内扣除）
+   * @param {number} dur   持续时间（秒）
+   */
+  applyPoison(dps, dur = 5) {
+    if (this.dead) return
+    // 叠加取最大值
+    this._poisonDps   = Math.max(this._poisonDps, dps)
+    this._poisonTimer = Math.max(this._poisonTimer, dur * 1000)
+    this._showStatusStart(`☠ 中毒 (${dur}s)`, '#44ff88')
+  }
+
+  /**
+   * 返回当前英雄的炼金加成系数（供 AlchemySystem 使用）
+   */
+  get alchemyBonus() {
+    return this._med?.alchemyBonus ?? 0
+  }
+
+  /**
+   * 返回当前英雄的治疗技能系数（供技能系统使用）
+   */
+  get healingSkill() {
+    return this._med?.healingSkill ?? 1.0
+  }
+
+  _showHeal(hp) {
+    const s = this.scene
+    const { width, height } = s.scale
+    const txt = s.add.text(width / 2, height / 2 - 40, `♥ +${hp}`, {
+      fontSize: '14px', color: '#ff88aa', fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(499).setScrollFactor(0)
+    s.tweens.add({ targets: txt, y: '-=30', alpha: 0, duration: 1400, ease: 'Power2',
+      onComplete: () => txt.destroy() })
+  }
+
+  _showStatusStart(label, color) {
+    const s = this.scene
+    const { width } = s.scale
+    const txt = s.add.text(width / 2, 60, label, {
+      fontSize: '12px', color,
+      stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(499).setScrollFactor(0)
+    s.tweens.add({ targets: txt, y: '-=20', alpha: 0, duration: 1800,
+      onComplete: () => txt.destroy() })
+  }
+
+  _showStatusEnd(label, color) {
+    const s = this.scene
+    const { width } = s.scale
+    const txt = s.add.text(width / 2, 60, `✓ ${label}已解除`, {
+      fontSize: '10px', color,
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(499).setScrollFactor(0)
+    s.tweens.add({ targets: txt, y: '-=16', alpha: 0, duration: 1200,
+      onComplete: () => txt.destroy() })
   }
 
   // ── Monster death FX ────────────────────────────────────────────────────
