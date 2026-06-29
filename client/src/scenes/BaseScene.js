@@ -18,6 +18,7 @@
  *   baseLevel                 1–5
  */
 import { getSound } from '../systems/SoundSystem.js'
+import { SaveSystem } from '../systems/SaveSystem.js'
 
 
 const GRADE_META = {
@@ -128,6 +129,23 @@ export default class BaseScene extends Phaser.Scene {
       this._save()
       this.time.delayedCall(180, () => this.scene.start('WorldScene', this.saveData))
     })
+
+    // M20: 存档码 导出 / 导入
+    const expBtn = this.add.text(140, 16, '📤 导出存档', {
+      fontSize: '13px', color: '#aaffcc',
+      backgroundColor: '#00000088', padding: { x: 8, y: 5 },
+    }).setInteractive({ useHandCursor: true })
+    expBtn.on('pointerover', () => expBtn.setStyle({ color: '#ffffff' }))
+    expBtn.on('pointerout',  () => expBtn.setStyle({ color: '#aaffcc' }))
+    expBtn.on('pointerdown', () => this._exportSave())
+
+    const impBtn = this.add.text(258, 16, '📥 导入存档', {
+      fontSize: '13px', color: '#ffddaa',
+      backgroundColor: '#00000088', padding: { x: 8, y: 5 },
+    }).setInteractive({ useHandCursor: true })
+    impBtn.on('pointerover', () => impBtn.setStyle({ color: '#ffffff' }))
+    impBtn.on('pointerout',  () => impBtn.setStyle({ color: '#ffddaa' }))
+    impBtn.on('pointerdown', () => this._importSave())
 
     // 布局
     this._renderInventory()
@@ -580,6 +598,59 @@ export default class BaseScene extends Phaser.Scene {
       targets: toast, y: H / 2 - 50, alpha: 0,
       delay: 1800, duration: 900,
       onComplete: () => toast.destroy(),
+    })
+  }
+
+  // ── M20: 存档码导出/导入 ──────────────────────────────────────────────
+  _exportSave() {
+    let code
+    try {
+      code = SaveSystem.exportCode(this)
+    } catch (e) {
+      this._toast('导出失败：' + e.message, '#ff6644'); return
+    }
+    // 尝试写入剪贴板
+    let copied = false
+    try {
+      navigator.clipboard?.writeText(code)
+      copied = true
+    } catch (e) { /* 不支持时退回手动复制 */ }
+
+    const { _w: W, _h: H } = this
+    const overlay = this.add.container(0, 0).setDepth(400)
+    const bg = this.add.rectangle(W / 2, H / 2, Math.min(680, W - 40), 240, 0x0a0a1a, 0.97)
+      .setStrokeStyle(2, 0x55dd99)
+    const title = this.add.text(W / 2, H / 2 - 92,
+      copied ? '📤 存档码已复制到剪贴板' : '📤 存档码（请手动全选复制）', {
+      fontSize: '15px', color: '#aaffcc', fontStyle: 'bold',
+    }).setOrigin(0.5)
+    // DOM 文本框便于选择复制
+    const ta = document.createElement('textarea')
+    ta.value = code
+    ta.readOnly = true
+    ta.style.cssText = 'width:600px;height:90px;font-size:11px;resize:none;background:#11112a;color:#9fe;border:1px solid #356;'
+    const dom = this.add.dom(W / 2, H / 2 - 5, ta)
+    ta.addEventListener('focus', () => ta.select())
+    const closeBtn = this.add.text(W / 2, H / 2 + 88, '关闭', {
+      fontSize: '14px', color: '#ffffff', backgroundColor: '#335577', padding: { x: 20, y: 7 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true })
+    closeBtn.on('pointerdown', () => overlay.destroy())
+    overlay.add([bg, title, dom, closeBtn])
+  }
+
+  _importSave() {
+    const code = window.prompt('粘贴存档码以导入（当前进度将被覆盖）：')
+    if (!code) return
+    let obj
+    try {
+      obj = SaveSystem.importCode(code)
+    } catch (e) {
+      this._toast('导入失败：' + e.message, '#ff6644'); return
+    }
+    this._toast('✅ 导入成功！正在重载存档…', '#55ff99')
+    this.saveData = obj
+    this.time.delayedCall(900, () => {
+      this.scene.start('ProfessionSelectScene', { existingSave: obj })
     })
   }
 }
