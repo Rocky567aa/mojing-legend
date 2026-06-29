@@ -18,7 +18,7 @@
 
 import { HERO_WEAPON_CONFIG } from '../data/HeroWeaponAssignment.js'
 import { WEAPONS } from '../data/WeaponData.js'
-import { WEAPONS as WEAPONS_EXT } from '../data/WeaponData_Ext.js'
+import { WEAPONS_EXT } from '../data/WeaponData_Ext.js'
 
 // 所有武器合并索引表
 const ALL_WEAPONS = [...WEAPONS, ...WEAPONS_EXT]
