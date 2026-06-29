@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import Phaser from 'phaser'
 import BootScene from './scenes/BootScene'
+import TitleScene from './scenes/TitleScene'
 import ProfessionSelectScene from './scenes/ProfessionSelectScene'
 import WorldScene from './scenes/WorldScene'
 import BaseScene from './scenes/BaseScene'
@@ -11,7 +12,7 @@ const GAME_CONFIG = {
   width: window.innerWidth,
   height: window.innerHeight,
   backgroundColor: '#0a0a1a',
-  scene: [BootScene, ProfessionSelectScene, WorldScene, BaseScene],
+  scene: [BootScene, TitleScene, ProfessionSelectScene, WorldScene, BaseScene],
   dom: {
     createContainer: true
   },
