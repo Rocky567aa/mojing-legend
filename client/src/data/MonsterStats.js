@@ -453,7 +453,7 @@ export function getMonsterStatsAtLevel(monsterId, level = 1, isElite = false, is
 export const BIOME_MONSTER_POOL = {
   0:  ['slime','goblin','wolf','giant_insect'],
   1:  ['wolf','harpy','goblin','vine_monster'],
-  2:  ['spider','snake','goblin'],
+  2:  ['spider','bat','goblin'],
   3:  ['skeleton','zombie','bat','ruin_skeleton'],
   4:  ['golem','crystal_scorpion','rock_elemental','orc'],
   5:  ['lava_salamander','magma_golem','ember_bat','fire_elemental'],
