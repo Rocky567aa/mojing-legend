@@ -24,7 +24,7 @@ const GRADE_META = {
   purple:  { label: '魔晶 ★',  color: '#cc66ff', hex: 0xcc66ff, glow: 0xaa44dd },
   gold:    { label: '神晶 ✦',  color: '#ffcc00', hex: 0xffcc00, glow: 0xffaa00 },
   red:     { label: '皇晶 ❖',  color: '#ff4444', hex: 0xff4444, glow: 0xff2200 },
-  rainbow: { label: '圣晶 ✧',  color: '#ffffff', hex: 0xffffff, glow: 0xffddff },
+  rainbow: { label: '圣晶 ✧',  color: '#ff88ff', hex: 0xff44cc, glow: 0x00ffff },
 }
 
 const MACHINE_DEF = [
