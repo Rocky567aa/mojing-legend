@@ -545,9 +545,47 @@ export default class WorldScene extends Phaser.Scene {
     return g
   }
 
-  // M21: 新手引导覆盖层（首次游玩）
-  _showTutorial() {
+  // ── M22: 状态效果辅助 ────────────────────────────────────────────────────
+  _applyStun(durSec) {
+    const until = this.time.now + durSec * 1000
+    this._stunUntil = Math.max(this._stunUntil ?? 0, until)
+    this._showStatusToast(`⚡ 眩晕 ${durSec}s`, '#ffff44')
+    this.cameras.main.shake(300, 0.008)
+  }
+
+  _applyStatusSlow(durSec) {
+    const until = this.time.now + durSec * 1000
+    this._slowUntil = Math.max(this._slowUntil ?? 0, until)
+    this._showStatusToast(`🌿 减速 ${durSec}s`, '#88ffcc')
+  }
+
+  _triggerBossSummon() {
+    // Boss 召唤：在 Boss 周围强制生成 1-2 只普通怪
+    if (!this.biomeSystem || !this.monsterSystem || !this.worldGen) return
+    const pt = this.playerTile
+    const biomeId = this.worldGen.getBiome(pt.x, pt.y) ?? 0
+    for (let i = 0; i < 2; i++) {
+      const nx = pt.x + Phaser.Math.Between(-5, 5)
+      const ny = pt.y + Phaser.Math.Between(-5, 5)
+      this.monsterSystem.trySpawnNear(
+        { x: nx, y: ny }, this.worldGen,
+        (wx, wy, h) => this.tileToScreen(wx, wy, h),
+      )
+    }
+    this._showStatusToast('💀 召唤增援！', '#ff66ff')
+  }
+
+  _showStatusToast(msg, color) {
     const { width: W, height: H } = this.scale
+    const t = this.add.text(W / 2, H * 0.38, msg, {
+      fontSize: '16px', color, fontStyle: 'bold',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(450)
+    this.tweens.add({ targets: t, y: H * 0.28, alpha: 0, duration: 1600, ease: 'Power1', onComplete: () => t.destroy() })
+  }
+
+  // M21: 新手引导覆盖层（首次游玩）
+  _showTutorial() {    const { width: W, height: H } = this.scale
     const layer = this.add.container(0, 0).setDepth(500).setScrollFactor(0)
     const dim = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.78).setScrollFactor(0)
     const panel = this.add.rectangle(W / 2, H / 2, Math.min(520, W - 40), 360, 0x140d28, 0.98)
@@ -656,8 +694,35 @@ export default class WorldScene extends Phaser.Scene {
       )
       const attacks = this.monsterSystem.update(dt, psx, psy)
       if (attacks && this.combatSystem) {
-        for (const { atk } of attacks) {
-          const dmg = Math.round(atk * (0.85 + Math.random() * 0.3))
+        for (const { atk, effects = [] } of attacks) {
+          let finalAtk = atk
+          for (const ef of effects) {
+            switch (ef.type) {
+              case 'aoe':
+                finalAtk = Math.round(atk * (ef.dmgMul ?? 1.5))
+                this.cameras.main.shake(220, 0.005)
+                break
+              case 'poison':
+                this.combatSystem.applyPoison(ef.dps ?? 5, ef.dur ?? 4)
+                break
+              case 'bleed':
+                this.combatSystem.applyBleed(ef.dps ?? 4, ef.dur ?? 3)
+                break
+              case 'stun':
+                this._applyStun(ef.dur ?? 1.5)
+                break
+              case 'slow':
+                this._applyStatusSlow(ef.dur ?? 2)
+                break
+              case 'crit':
+                finalAtk = Math.round(atk * (ef.mul ?? 1.8))
+                break
+              case 'summon':
+                this._triggerBossSummon()
+                break
+            }
+          }
+          const dmg = Math.round(finalAtk * (0.85 + Math.random() * 0.3))
           this.combatSystem.takeDamage(dmg)
         }
       }
@@ -666,7 +731,10 @@ export default class WorldScene extends Phaser.Scene {
     const speedMul = this.foodSystem?.speedMul ?? 1.0
     const heroSpdMul = this.combatSystem?.skillSystem?.moveSpeedMul ?? 1.0
     const hazardMul  = this.hazardSystem?.getMoveSpeedMul() ?? 1.0
-    const moveDelay = Math.round(160 / (speedMul * heroSpdMul * hazardMul))
+    const statusSlowMul = (this._slowUntil ?? 0) > time ? 0.35 : 1.0
+    // M22: 硬直（眩晕）期间完全禁止移动
+    if ((this._stunUntil ?? 0) > time) return
+    const moveDelay = Math.round(160 / (speedMul * heroSpdMul * hazardMul * statusSlowMul))
     if (time - this.moveTimer < moveDelay) return
 
     const { x, y } = this.playerTile
