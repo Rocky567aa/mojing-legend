@@ -21,6 +21,7 @@ import { PlantSystem } from '../entities/PlantSystem.js'
 import { InsectSystem } from '../entities/InsectSystem.js'
 import { MonsterSystem } from '../entities/MonsterSystem.js'
 import { CombatSystem } from '../systems/CombatSystem.js'
+import { WeaponSystem } from '../systems/WeaponSystem.js'
 import { DayNightSystem } from '../systems/DayNightSystem.js'
 import { WeatherSystem } from '../systems/WeatherSystem.js'
 import { BIOME_ID_TO_TILE_KEY } from '../utils/BiomeTileMap.js'
@@ -49,6 +50,7 @@ export default class WorldScene extends Phaser.Scene {
     this.insectSystem = null
     this.monsterSystem = null
     this.combatSystem  = null
+    this.weaponSystem  = null
   }
 
   init(data) {
@@ -76,6 +78,10 @@ export default class WorldScene extends Phaser.Scene {
     this.monsterSystem = new MonsterSystem(this, this.worldContainer)
     this.combatSystem  = new CombatSystem(this)
     this.combatSystem.init(this.saveData?.profession ?? 'kane')
+    // WeaponSystem — 依赖 CombatSystem，需在 combat.init() 后构建
+    this.weaponSystem = new WeaponSystem(this, this.combatSystem)
+    this.combatSystem.weaponSystem = this.weaponSystem
+    this.weaponSystem.initHeroWeapon(this.saveData?.profession ?? 'kain')
 
     // 加载初始区块
     this.loadVisibleChunks()
@@ -125,6 +131,7 @@ export default class WorldScene extends Phaser.Scene {
     baseBtn.on('pointerout',  () => baseBtn.setStyle({ color: '#ffe0aa' }))
 
     this.combatSystem.buildUI(width, height)
+    this.weaponSystem.buildUI(width, height)
 
     // ── 昼夜循环 + 天气系统 ────────────────────────────────────────────────
     this.dayNightSystem = new DayNightSystem(this, { startTime: 0.33 /* 从早晨开始 */ })
@@ -487,6 +494,14 @@ export default class WorldScene extends Phaser.Scene {
     if (this.insectSystem) this.insectSystem.update(dt, now)
     if (this.plantSystem)  this.plantSystem.update(now)
     if (this.combatSystem) this.combatSystem.update(dt)
+    // WeaponSystem 每帧检测地面拾取
+    if (this.weaponSystem && this.worldGen) {
+      const { sx: pwsx, sy: pwsy } = this.tileToScreen(
+        this.playerTile.x, this.playerTile.y,
+        this.worldGen.getHeight(this.playerTile.x, this.playerTile.y)
+      )
+      this.weaponSystem.update(pwsx, pwsy)
+    }
 
     // ── 昼夜 + 天气 ────────────────────────────────────────────────────────
     if (this.dayNightSystem) this.dayNightSystem.update(dt)
