@@ -217,6 +217,7 @@ export class HeroSkillSystem {
     const a = this.skills.active
     if (!a) return
     this._execCast(a.cast, a.name)
+    this.scene.sfx?.skill()
     this._cd = this._cdMax
     this._refreshCdUI()
   }
