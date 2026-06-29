@@ -17,6 +17,8 @@
  *   crystals                  [ { id, grade, element, level, corrupted, sideEffects[] } ]
  *   baseLevel                 1–5
  */
+import { getSound } from '../systems/SoundSystem.js'
+
 
 const GRADE_META = {
   green:   { label: '凡晶 ●',  color: '#55dd55', hex: 0x55dd55, glow: 0x33ff33 },
@@ -349,6 +351,7 @@ export default class BaseScene extends Phaser.Scene {
         inv.purifiedPowders = {}
         const m = GRADE_META[crystal.grade] ?? GRADE_META.green
         this._toast(`✨ 炼金成功！获得 ${m.label}`, m.color)
+        getSound().craft()
       } else {
         // 跳过提纯 → 副作用
         const r = Math.random()
