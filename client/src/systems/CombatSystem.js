@@ -11,12 +11,19 @@ export class CombatSystem {
     this.atk = 15; this.crit = 0.10; this.critMul = 2.0
     this.xp = 0; this.level = 1
     this.dead = false
+    // Base stats (set in init, never modified by weapon equip)
+    this.baseAtk = 15; this.baseCrit = 0.10; this.baseCritMul = 2.0
+    // Weapon runtime modifiers
+    this.atkSpd = 1.0       // attack speed multiplier
+    this.atkRange = 1.5     // weapon reach in tiles
     // UI elements (created in buildUI)
     this.hpBar = null; this.hpBarFill = null; this.hpText = null
     this.xpBar = null; this.xpBarFill = null; this.levelText = null
     // Regen timer for 莉娜
     this._regenTimer = 0
     this._heroId = null
+    // Weapon system reference (set externally after construction)
+    this.weaponSystem = null
   }
 
   init(professionId) {
@@ -24,9 +31,14 @@ export class CombatSystem {
     const s = hero.stats
     this._heroId = hero.id
     this.maxHp = s.hp; this.hp = s.hp
-    this.atk   = s.atk
-    this.crit  = s.crit
-    this.critMul = s.critMul ?? 2.0
+    this.atk      = s.atk
+    this.baseAtk  = s.atk    // locked — weapon equip reads this
+    this.crit     = s.crit
+    this.baseCrit = s.crit
+    this.critMul    = s.critMul ?? 2.0
+    this.baseCritMul = s.critMul ?? 2.0
+    this.atkSpd  = 1.0
+    this.atkRange = 1.5
     this.dead  = false
     this.xp = 0; this.level = 1
     this._xpToNext = 30
@@ -117,13 +129,23 @@ export class CombatSystem {
       this.xp -= this._xpToNext
       this.level++
       this._xpToNext = Math.round(this._xpToNext * 1.45)
-      this.atk  = Math.round(this.atk * 1.12)
+      this.atk      = Math.round(this.atk * 1.12)
+      this.baseAtk  = Math.round(this.baseAtk * 1.12)  // level up grows base too
       this.maxHp = Math.round(this.maxHp * 1.08)
       this.hp = Math.min(this.hp + 20, this.maxHp)
       this._showLevelUp()
+      // 升级后重新应用武器加成
+      if (this.weaponSystem?.equipped) {
+        this.weaponSystem._applyCombatStats()
+        this.weaponSystem.refreshUI()
+      }
     }
     this.refreshUI()
-    // Loot drops
+    // ── 武器掉落 ────────────────────────────────────────────────────────
+    if (this.weaponSystem) {
+      this.weaponSystem.rollWeaponDrop(this.level, m.sx, m.sy)
+    }
+    // ── 物品掉落 ─────────────────────────────────────────────────────────
     const drops = m.type?.drops ?? []
     for (const d of drops) {
       if (Math.random() < d.chance) {
