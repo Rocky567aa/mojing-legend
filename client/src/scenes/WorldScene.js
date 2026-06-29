@@ -689,9 +689,14 @@ export default class WorldScene extends Phaser.Scene {
 
     // 存档更新
     const save = this.saveData
-    if (!save.inventory) save.inventory = { ores: {} }
-    if (!save.inventory.ores) save.inventory.ores = {}
-    save.inventory.ores[info.drops] = (save.inventory.ores[info.drops] || 0) + 1
+    if (!save.inventory) save.inventory = {}
+    const _inv = save.inventory
+    if (!_inv.ores)            _inv.ores = {}
+    if (!_inv.powders)         _inv.powders = {}
+    if (!_inv.purifiedPowders) _inv.purifiedPowders = {}
+    if (_inv.purifier  == null) _inv.purifier  = 0
+    if (_inv.fuel      == null) _inv.fuel      = 3
+    _inv.ores[info.drops] = (_inv.ores[info.drops] || 0) + 1
     localStorage.setItem('mojing_save', JSON.stringify(save))
 
     // ── 拾取通知（中文名称 + 等级卡片）──────────────────────────
