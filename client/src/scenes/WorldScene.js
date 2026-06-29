@@ -22,6 +22,7 @@ import { InsectSystem } from '../entities/InsectSystem.js'
 import { MonsterSystem } from '../entities/MonsterSystem.js'
 import { CombatSystem } from '../systems/CombatSystem.js'
 import { WeaponSystem } from '../systems/WeaponSystem.js'
+import { FoodSystem } from '../systems/FoodSystem.js'
 import { DayNightSystem } from '../systems/DayNightSystem.js'
 import { WeatherSystem } from '../systems/WeatherSystem.js'
 import { BIOME_ID_TO_TILE_KEY } from '../utils/BiomeTileMap.js'
@@ -51,6 +52,7 @@ export default class WorldScene extends Phaser.Scene {
     this.monsterSystem = null
     this.combatSystem  = null
     this.weaponSystem  = null
+    this.foodSystem    = null
   }
 
   init(data) {
@@ -82,6 +84,9 @@ export default class WorldScene extends Phaser.Scene {
     this.weaponSystem = new WeaponSystem(this, this.combatSystem)
     this.combatSystem.weaponSystem = this.weaponSystem
     this.weaponSystem.initHeroWeapon(this.saveData?.profession ?? 'kane')
+
+    // FoodSystem — 依赖 CombatSystem
+    this.foodSystem = new FoodSystem(this, this.combatSystem)
 
     // 加载初始区块
     this.loadVisibleChunks()
@@ -132,6 +137,7 @@ export default class WorldScene extends Phaser.Scene {
 
     this.combatSystem.buildUI(width, height)
     this.weaponSystem.buildUI(width, height)
+    this.foodSystem.buildUI(width, height)
 
     // ── 昼夜循环 + 天气系统 ────────────────────────────────────────────────
     this.dayNightSystem = new DayNightSystem(this, { startTime: 0.33 /* 从早晨开始 */ })
@@ -258,6 +264,12 @@ export default class WorldScene extends Phaser.Scene {
       tiles, cx, cy,
       (wx, wy, h) => this.tileToScreen(wx, wy, h)
     )
+
+    // 食物 / 蘑菇生成（FoodSystem）
+    if (this.foodSystem && this.worldGen) {
+      const biomeId = this.worldGen.getBiome?.(cx * 32, cy * 32) ?? 0
+      this.foodSystem.seedChunk(cx, cy, biomeId)
+    }
 
     // 昆虫生成
     this.insectSystem.spawnChunkInsects(
@@ -494,6 +506,12 @@ export default class WorldScene extends Phaser.Scene {
     if (this.insectSystem) this.insectSystem.update(dt, now)
     if (this.plantSystem)  this.plantSystem.update(now)
     if (this.combatSystem) this.combatSystem.update(dt)
+    // FoodSystem 每帧：拾取检测 + buff 倒计时
+    if (this.foodSystem && this.worldGen) {
+      const psx2 = this.playerWorldX ?? 0
+      const psy2 = this.playerWorldY ?? 0
+      this.foodSystem.update(dt, psx2, psy2)
+    }
     // WeaponSystem 每帧检测地面拾取
     if (this.weaponSystem && this.worldGen) {
       const { sx: pwsx, sy: pwsy } = this.tileToScreen(
@@ -525,7 +543,9 @@ export default class WorldScene extends Phaser.Scene {
       }
     }
 
-    if (time - this.moveTimer < 160) return
+    const speedMul = this.foodSystem?.speedMul ?? 1.0
+    const moveDelay = Math.round(160 / speedMul)
+    if (time - this.moveTimer < moveDelay) return
 
     const { x, y } = this.playerTile
     const MAX = WORLD_CONFIG.TILES - 1
