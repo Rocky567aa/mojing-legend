@@ -9,6 +9,7 @@
  */
 import { HERO_DATA } from '../data/HeroData.js'
 import { HERO_MEDICINE } from '../data/HeroMedicine.js'
+import { HeroSkillSystem } from '../systems/HeroSkillSystem.js'
 
 export class CombatSystem {
   constructor(scene) {
@@ -57,6 +58,10 @@ export class CombatSystem {
     this._med = HERO_MEDICINE[hero.id] ?? HERO_MEDICINE['kane']
     this._poisonTimer = 0
     this._poisonDps   = 0
+
+    // M14: 英雄技能引擎 — 创建后 init() 把被动 stat_mod 应用到上面的属性
+    this.skillSystem = new HeroSkillSystem(this.scene, this)
+    this.skillSystem.init(hero.id)
   }
 
   buildUI(width, height) {
@@ -99,6 +104,14 @@ export class CombatSystem {
 
     this._barBounds = { x: bx, y: by, w: BAR_W, h: BAR_H }
     this.refreshUI()
+
+    // M14: 主动技能图标 + 冷却环
+    this.skillSystem?.buildUI(width, height)
+  }
+
+  /** M14: 释放当前英雄主动技能（WorldScene 空格键触发） */
+  castSkill() {
+    this.skillSystem?.castActive()
   }
 
   refreshUI() {
@@ -125,11 +138,16 @@ export class CombatSystem {
   // ── Player → Monster ─────────────────────────────────────────────────────
   attack(monster) {
     if (this.dead) return null
-    const isCrit = Math.random() < this.crit
-    const base = this.atk * (0.85 + Math.random() * 0.30)
+    // M14: 被动修正出手攻击力 + 暴击率（低血狂暴/叠层/猎鹰标记）
+    const effAtk  = this.skillSystem?.modifyOutgoingAtk(this.atk, monster) ?? this.atk
+    const effCrit = this.skillSystem?.modifyCrit(this.crit, monster) ?? this.crit
+    const isCrit = Math.random() < effCrit
+    const base = effAtk * (0.85 + Math.random() * 0.30)
     const dmg = Math.round(isCrit ? base * this.critMul : base)
     const dead = monster.type && this.scene.monsterSystem?.damage(monster, dmg)
     this._showFloat(monster.sx, monster.sy, dmg, isCrit)
+    // M14: 命中钩子（燃烧/冰冻/叠层/标记）
+    this.skillSystem?.onAttack(monster, { dmg, isCrit })
     if (dead) this._onKill(monster)
     return { dmg, isCrit, killed: dead }
   }
@@ -178,13 +196,15 @@ export class CombatSystem {
         if (this.scene.pickupNotif) this.scene.pickupNotif.show(d.item, cnt)
       }
     }
+    // M14: 击杀钩子（吸血/召唤/自动药剂）
+    this.skillSystem?.onKill(m)
   }
 
   // ── Monster → Player ─────────────────────────────────────────────────────
   takeDamage(dmg) {
     if (this.dead) return
-    // kane innate damage reduction
-    let reduced = this._heroId === 'kane' ? Math.round(dmg * 0.8) : dmg
+    // M14: 被动减伤（kane 钢铁之躯 / roal 圣盾 / 限时护盾）经技能引擎统一处理
+    let reduced = this.skillSystem?.modifyIncomingDamage(dmg) ?? dmg
     // physDef multiplier from FoodSystem (def_up buff)
     const physDefMul = this.scene.foodSystem?.physDefMul ?? 1.0
     reduced = Math.round(reduced / physDefMul)
@@ -264,15 +284,8 @@ export class CombatSystem {
   // ── Regen (Lena passive) ─────────────────────────────────────────────────
   update(delta) {
     if (this.dead) return
-    // 莉娜：每10s回复15HP
-    if (this._heroId === 'lena') {
-      this._regenTimer += delta
-      if (this._regenTimer >= 10000) {
-        this._regenTimer = 0
-        this.hp = Math.min(this.maxHp, this.hp + 15)
-        this.refreshUI()
-      }
-    }
+    // M14: 英雄技能引擎每帧更新（回血/护盾倒计时/叠层/CD/召唤物）
+    this.skillSystem?.onTick(delta)
     // 中毒 tick（来自有毒蘑菇 / 植物 / 怪物攻击）
     if (this._poisonTimer > 0) {
       this._poisonTimer -= delta
