@@ -345,7 +345,7 @@ export class InsectSystem {
       }
 
       // 翅膀扇动（蝴蝶/飞蛾：scaleX 摇摆）
-      if (type === INSECT_TYPE.BUTTERFLY || type === INSECT_TYPE.MOTH) {
+      if (insect.type === INSECT_TYPE.BUTTERFLY || insect.type === INSECT_TYPE.MOTH) {
         insect.graphics.scaleX = 0.85 + Math.sin(insect.bobTimer * 8) * 0.15
       }
     }
