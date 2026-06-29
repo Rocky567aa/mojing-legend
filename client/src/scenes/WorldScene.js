@@ -28,6 +28,7 @@ import { HazardSystem } from '../systems/HazardSystem.js'
 import { DayNightSystem } from '../systems/DayNightSystem.js'
 import { WeatherSystem } from '../systems/WeatherSystem.js'
 import { getSound } from '../systems/SoundSystem.js'
+import { SaveSystem } from '../systems/SaveSystem.js'
 import { BIOME_ID_TO_TILE_KEY } from '../utils/BiomeTileMap.js'
 
 const TILE_W = 64        // 等距瓦片宽
@@ -70,6 +71,11 @@ export default class WorldScene extends Phaser.Scene {
     // 西方魔法背景（深夜蓝黑）
     this.cameras.main.setBackgroundColor('#060a14')
 
+    // M20: 恢复玩家位置（老存档）
+    if (this.saveData?.playerTile) {
+      this.playerTile = { x: this.saveData.playerTile.x, y: this.saveData.playerTile.y }
+    }
+
     // 用存档种子初始化 WorldGen（正式版种子从服务器获取）
     const seed = this.saveData?.worldSeed ?? 54321
     this.worldGen = new WorldGen(seed)
@@ -89,6 +95,10 @@ export default class WorldScene extends Phaser.Scene {
     this.weaponSystem = new WeaponSystem(this, this.combatSystem)
     this.combatSystem.weaponSystem = this.weaponSystem
     this.weaponSystem.initHeroWeapon(this.saveData?.profession ?? 'kane')
+
+    // M20: 从存档恢复等级/经验/血量/攻击 + 武器装备背包
+    SaveSystem.applyToCombat(this, this.saveData)
+    SaveSystem.applyToWeapons(this, this.saveData)
 
     // FoodSystem — 依赖 CombatSystem
     this.foodSystem = new FoodSystem(this, this.combatSystem)
@@ -150,6 +160,7 @@ export default class WorldScene extends Phaser.Scene {
       padding: { x: 12, y: 7 }
     }).setOrigin(1, 1).setInteractive({ useHandCursor: true }).setDepth(200).setScrollFactor(0)
     baseBtn.on('pointerdown', () => {
+      SaveSystem.save(this)
       this.cameras.main.fadeOut(350, 0, 0, 0)
       this.time.delayedCall(350, () => this.scene.start('BaseScene', this.saveData))
     })
@@ -186,6 +197,11 @@ export default class WorldScene extends Phaser.Scene {
     }
 
     this.updateUI()
+
+    // M20: 自动存档（每 30 秒）+ 离开场景时存档
+    SaveSystem.startAutoSave(this, 30000)
+    if (this.saveData?.settings?.muted && this.sfx) { this.sfx.muted = true }
+    this.events.once('shutdown', () => { SaveSystem.save(this) })
 
     // 淡入
     this.cameras.main.fadeIn(500, 0, 0, 0)
