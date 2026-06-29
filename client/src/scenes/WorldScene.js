@@ -105,6 +105,11 @@ export default class WorldScene extends Phaser.Scene {
       right: Phaser.Input.Keyboard.KeyCodes.D,
     })
 
+    // M14: 空格释放英雄主动技能
+    this.input.keyboard.on('keydown-SPACE', () => {
+      this.combatSystem?.castSkill()
+    })
+
     // 点击挖矿
     this.input.on('pointerdown', ptr => this.handleClick(ptr))
 
@@ -550,7 +555,8 @@ export default class WorldScene extends Phaser.Scene {
     }
 
     const speedMul = this.foodSystem?.speedMul ?? 1.0
-    const moveDelay = Math.round(160 / speedMul)
+    const heroSpdMul = this.combatSystem?.skillSystem?.moveSpeedMul ?? 1.0
+    const moveDelay = Math.round(160 / (speedMul * heroSpdMul))
     if (time - this.moveTimer < moveDelay) return
 
     const { x, y } = this.playerTile
